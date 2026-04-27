@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.env
+*.log
+.cache/
+.bin/
+.prisma/
+tree
+tree.txt
+tree_*.txt

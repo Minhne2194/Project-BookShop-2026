@@ -1,0 +1,294 @@
+// ==========================================
+// CẤU HÌNH PRISMA & DATABASE
+// ==========================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// ENUMS (Các kiểu dữ liệu liệt kê)
+// ==========================================
+enum Role {
+  customer
+  admin
+  moderator
+}
+
+enum UserStatus {
+  active
+  banned
+  unverified
+}
+
+enum ReadingLevel {
+  casual
+  moderate
+  heavy
+}
+
+enum AuthorRole {
+  author
+  translator
+  editor
+  illustrator
+}
+
+enum OrderStatus {
+  pending
+  confirmed
+  shipping
+  delivered
+  cancelled
+  refunded
+}
+
+enum PaymentMethod {
+  cod
+  bank_transfer
+  momo
+  vnpay
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+}
+
+enum EventType {
+  view
+  add_to_cart
+  wishlist
+  purchase
+  search
+}
+
+// ==========================================
+// 1. TẬP DỮ LIỆU NGƯỜI DÙNG (USER DATA)
+// ==========================================
+model User {
+  user_id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String    @unique @db.VarChar(255)
+  password_hash    String    // Dùng argon2id
+  phone            String?   @db.VarChar(20)
+  full_name        String?   @db.VarChar(200)
+  role             Role      @default(customer)
+  status           UserStatus @default(unverified)
+  email_verified   Boolean   @default(false)
+  last_login_at    DateTime? @db.Timestamptz
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  // Relations
+  profile          UserProfile?
+  sessions         UserSession[]
+  orders           Order[]
+  reviews          Review[]
+  behavior_events  UserBehaviorEvent[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  user_id          String        @id @db.Uuid
+  user             User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  preferred_genres String[]      @db.Uuid // Lưu mảng category_id
+  preferred_langs  String[]      @db.VarChar // ['vi', 'en']
+  birthday         DateTime?     @db.Date
+  gender           String?       @db.VarChar(20)
+  reading_level    ReadingLevel?
+  metadata         Json?         // push token, device, preferences...
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  session_id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String    @db.Uuid
+  user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  device_info      Json?
+  ip_address       String?   @db.Inet
+  expires_at       DateTime  @db.Timestamptz
+
+  @@map("user_sessions")
+}
+
+// ==========================================
+// 2. TẬP DỮ LIỆU SẢN PHẨM SÁCH (BOOK CATALOG)
+// ==========================================
+model Publisher {
+  publisher_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String    @db.VarChar(255)
+  books            Book[]
+
+  @@map("publishers")
+}
+
+model Author {
+  author_id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String        @db.VarChar(255)
+  book_authors     BookAuthor[]
+
+  @@map("authors")
+}
+
+model Category {
+  category_id      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  parent_id        String?   @db.Uuid
+  parent           Category? @relation("CategoryToCategory", fields: [parent_id], references:[category_id])
+  children         Category[] @relation("CategoryToCategory")
+  name             String    @db.VarChar(200)
+  slug             String    @unique @db.VarChar(200)
+  level            Int       @db.SmallInt // 1, 2, 3
+  sort_order       Int?
+
+  book_categories  BookCategory[]
+
+  @@map("categories")
+}
+
+model Book {
+  book_id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  isbn             String?   @unique @db.VarChar(20)
+  title            String    @db.VarChar(500)
+  slug             String    @unique @db.VarChar(500) // SEO URL
+  description      String?   @db.Text
+  price            Decimal   @db.Decimal(12, 2)
+  compare_price    Decimal?  @db.Decimal(12, 2) // Giá gốc
+  stock_qty        Int       @default(0)
+  sold_count       Int       @default(0)
+  page_count       Int?
+  language         String    @default("vi") @db.VarChar(10)
+  publish_year     Int?      @db.SmallInt
+  
+  publisher_id     String?   @db.Uuid
+  publisher        Publisher? @relation(fields: [publisher_id], references: [publisher_id])
+  
+  cover_url        String?   @db.Text
+  extra_images     Json?     // ['url1', 'url2']
+  avg_rating       Decimal   @default(0) @db.Decimal(3, 2)
+  rating_count     Int       @default(0)
+  metadata         Json?     // { weight_g, size_cm, format }
+  is_active        Boolean   @default(true)
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  // Relations
+  book_authors     BookAuthor[]
+  book_categories  BookCategory[]
+  order_items      OrderItem[]
+  reviews          Review[]
+  behavior_events  UserBehaviorEvent[]
+
+  @@map("books")
+}
+
+model BookAuthor {
+  book_id          String    @db.Uuid
+  author_id        String    @db.Uuid
+  role             AuthorRole
+  
+  book             Book      @relation(fields: [book_id], references: [book_id], onDelete: Cascade)
+  author           Author    @relation(fields:[author_id], references: [author_id], onDelete: Cascade)
+
+  @@id([book_id, author_id])
+  @@map("book_authors")
+}
+
+model BookCategory {
+  book_id          String    @db.Uuid
+  category_id      String    @db.Uuid
+  is_primary       Boolean   @default(false)
+
+  book             Book      @relation(fields: [book_id], references:[book_id], onDelete: Cascade)
+  category         Category  @relation(fields: [category_id], references: [category_id], onDelete: Cascade)
+
+  @@id([book_id, category_id])
+  @@map("book_categories")
+}
+
+// ==========================================
+// 3. DỮ LIỆU ĐƠN HÀNG (ORDER DATA)
+// ==========================================
+model Order {
+  order_id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_code       String    @unique @db.VarChar(20) // ORD-2024-00001
+  user_id          String    @db.Uuid
+  user             User      @relation(fields: [user_id], references: [user_id])
+  status           OrderStatus
+  subtotal         Decimal   @db.Decimal(12, 2)
+  discount_amount  Decimal   @default(0) @db.Decimal(12, 2)
+  shipping_fee     Decimal   @db.Decimal(12, 2)
+  total_amount     Decimal   @db.Decimal(12, 2)
+  payment_method   PaymentMethod
+  payment_status   PaymentStatus
+  shipping_address Json      // JSONB
+  note             String?   @db.Text
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  items            OrderItem[]
+  reviews          Review[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  item_id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id         String    @db.Uuid
+  order            Order     @relation(fields: [order_id], references:[order_id], onDelete: Cascade)
+  book_id          String    @db.Uuid
+  book             Book      @relation(fields: [book_id], references: [book_id])
+  quantity         Int
+  unit_price       Decimal   @db.Decimal(12, 2) // snapshot giá thời điểm mua
+  discount         Decimal?  @db.Decimal(12, 2)
+
+  @@map("order_items")
+}
+
+// ==========================================
+// 4. DỮ LIỆU ĐÁNH GIÁ & HÀNH VI (REVIEWS & BEHAVIOR)
+// ==========================================
+model Review {
+  review_id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  book_id          String    @db.Uuid
+  book             Book      @relation(fields:[book_id], references: [book_id])
+  user_id          String    @db.Uuid
+  user             User      @relation(fields: [user_id], references: [user_id])
+  order_id         String    @db.Uuid
+  order            Order     @relation(fields:[order_id], references: [order_id])
+  rating           Int       @db.SmallInt // Validate 1-5 ở tầng code NestJS
+  title            String?   @db.VarChar(200)
+  body             String?   @db.Text
+  helpful_count    Int       @default(0)
+  status           ReviewStatus
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  @@map("reviews")
+}
+
+model UserBehaviorEvent {
+  event_id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?   @db.Uuid // Nullable cho khách anonymous
+  user             User?     @relation(fields: [user_id], references: [user_id])
+  session_id       String    @db.Uuid
+  event_type       EventType
+  book_id          String?   @db.Uuid
+  book             Book?     @relation(fields: [book_id], references:[book_id])
+  search_query     String?   @db.Text
+  duration_sec     Int?
+  metadata         Json?
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  @@index([user_id, created_at(sort: Desc)])
+  @@index([book_id, event_type])
+  @@map("user_behavior_events")
+}
