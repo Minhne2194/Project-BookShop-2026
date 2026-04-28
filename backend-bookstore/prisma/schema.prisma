@@ -88,6 +88,7 @@ model User {
   email_verified   Boolean   @default(false)
   last_login_at    DateTime? @db.Timestamptz
   created_at       DateTime  @default(now()) @db.Timestamptz
+  updated_at       DateTime  @updatedAt @db.Timestamptz
 
   // Relations
   profile          UserProfile?
@@ -96,6 +97,8 @@ model User {
   reviews          Review[]
   behavior_events  UserBehaviorEvent[]
 
+  @@index([email])
+  @@index([status])
   @@map("users")
 }
 
@@ -107,7 +110,7 @@ model UserProfile {
   birthday         DateTime?     @db.Date
   gender           String?       @db.VarChar(20)
   reading_level    ReadingLevel?
-  metadata         Json?         // push token, device, preferences...
+  metadata         Json?         @default("{}") // push token, device, preferences...
 
   @@map("user_profiles")
 }
@@ -116,10 +119,13 @@ model UserSession {
   session_id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id          String    @db.Uuid
   user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
-  device_info      Json?
+  device_info      Json      @default("{}")
   ip_address       String?   @db.Inet
   expires_at       DateTime  @db.Timestamptz
+  created_at       DateTime  @default(now()) @db.Timestamptz
 
+  @@index([user_id])
+  @@index([expires_at])
   @@map("user_sessions")
 }
 
@@ -128,7 +134,11 @@ model UserSession {
 // ==========================================
 model Publisher {
   publisher_id     String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String    @db.VarChar(255)
+  name             String    @db.VarChar(300)
+  slug             String    @unique @db.VarChar(300)
+  website          String?   @db.Text
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
   books            Book[]
 
   @@map("publishers")
@@ -136,7 +146,12 @@ model Publisher {
 
 model Author {
   author_id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name             String        @db.VarChar(255)
+  name             String        @db.VarChar(300)
+  slug             String        @unique @db.VarChar(300)
+  bio              String?       @db.Text
+  avatar_url       String?       @db.Text
+  created_at       DateTime      @default(now()) @db.Timestamptz
+
   book_authors     BookAuthor[]
 
   @@map("authors")
@@ -145,12 +160,13 @@ model Author {
 model Category {
   category_id      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parent_id        String?   @db.Uuid
-  parent           Category? @relation("CategoryToCategory", fields: [parent_id], references:[category_id])
+  parent           Category? @relation("CategoryToCategory", fields: [parent_id], references:[category_id], onDelete: SetNull)
   children         Category[] @relation("CategoryToCategory")
   name             String    @db.VarChar(200)
   slug             String    @unique @db.VarChar(200)
   level            Int       @db.SmallInt // 1, 2, 3
-  sort_order       Int?
+  sort_order       Int       @default(0)
+  created_at       DateTime  @default(now()) @db.Timestamptz
 
   book_categories  BookCategory[]
 
@@ -172,15 +188,16 @@ model Book {
   publish_year     Int?      @db.SmallInt
   
   publisher_id     String?   @db.Uuid
-  publisher        Publisher? @relation(fields: [publisher_id], references: [publisher_id])
+  publisher        Publisher? @relation(fields: [publisher_id], references: [publisher_id], onDelete: SetNull)
   
   cover_url        String?   @db.Text
-  extra_images     Json?     // ['url1', 'url2']
+  extra_images     Json      @default("[]") // ['url1', 'url2']
   avg_rating       Decimal   @default(0) @db.Decimal(3, 2)
   rating_count     Int       @default(0)
-  metadata         Json?     // { weight_g, size_cm, format }
+  metadata         Json      @default("{}") // { weight_g, size_cm, format }
   is_active        Boolean   @default(true)
   created_at       DateTime  @default(now()) @db.Timestamptz
+  updated_at       DateTime  @updatedAt @db.Timestamptz
 
   // Relations
   book_authors     BookAuthor[]
@@ -189,13 +206,19 @@ model Book {
   reviews          Review[]
   behavior_events  UserBehaviorEvent[]
 
+  @@index([publisher_id])
+  @@index([language])
+  @@index([is_active])
+  @@index([price])
+  @@index([avg_rating(sort: Desc)])
+  @@index([sold_count(sort: Desc)])
   @@map("books")
 }
 
 model BookAuthor {
   book_id          String    @db.Uuid
   author_id        String    @db.Uuid
-  role             AuthorRole
+  role             AuthorRole @default(author)
   
   book             Book      @relation(fields: [book_id], references: [book_id], onDelete: Cascade)
   author           Author    @relation(fields:[author_id], references: [author_id], onDelete: Cascade)
@@ -213,6 +236,7 @@ model BookCategory {
   category         Category  @relation(fields: [category_id], references: [category_id], onDelete: Cascade)
 
   @@id([book_id, category_id])
+  @@index([category_id])
   @@map("book_categories")
 }
 
@@ -223,21 +247,25 @@ model Order {
   order_id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   order_code       String    @unique @db.VarChar(20) // ORD-2024-00001
   user_id          String    @db.Uuid
-  user             User      @relation(fields: [user_id], references: [user_id])
-  status           OrderStatus
+  user             User      @relation(fields: [user_id], references: [user_id], onDelete: Restrict)
+  status           OrderStatus @default(pending)
   subtotal         Decimal   @db.Decimal(12, 2)
   discount_amount  Decimal   @default(0) @db.Decimal(12, 2)
-  shipping_fee     Decimal   @db.Decimal(12, 2)
+  shipping_fee     Decimal   @default(0) @db.Decimal(12, 2)
   total_amount     Decimal   @db.Decimal(12, 2)
   payment_method   PaymentMethod
-  payment_status   PaymentStatus
-  shipping_address Json      // JSONB
+  payment_status   PaymentStatus @default(pending)
+  shipping_address Json      @default("{}") // JSONB
   note             String?   @db.Text
   created_at       DateTime  @default(now()) @db.Timestamptz
+  updated_at       DateTime  @updatedAt @db.Timestamptz
 
   items            OrderItem[]
   reviews          Review[]
 
+  @@index([user_id])
+  @@index([status])
+  @@index([created_at(sort: Desc)])
   @@map("orders")
 }
 
@@ -246,11 +274,13 @@ model OrderItem {
   order_id         String    @db.Uuid
   order            Order     @relation(fields: [order_id], references:[order_id], onDelete: Cascade)
   book_id          String    @db.Uuid
-  book             Book      @relation(fields: [book_id], references: [book_id])
+  book             Book      @relation(fields: [book_id], references: [book_id], onDelete: Restrict)
   quantity         Int
   unit_price       Decimal   @db.Decimal(12, 2) // snapshot giá thời điểm mua
-  discount         Decimal?  @db.Decimal(12, 2)
+  discount         Decimal   @default(0) @db.Decimal(12, 2)
 
+  @@index([order_id])
+  @@index([book_id])
   @@map("order_items")
 }
 
@@ -260,35 +290,40 @@ model OrderItem {
 model Review {
   review_id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   book_id          String    @db.Uuid
-  book             Book      @relation(fields:[book_id], references: [book_id])
+  book             Book      @relation(fields:[book_id], references: [book_id], onDelete: Cascade)
   user_id          String    @db.Uuid
-  user             User      @relation(fields: [user_id], references: [user_id])
-  order_id         String    @db.Uuid
-  order            Order     @relation(fields:[order_id], references: [order_id])
+  user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  order_id         String?   @db.Uuid
+  order            Order?    @relation(fields:[order_id], references: [order_id], onDelete: SetNull)
   rating           Int       @db.SmallInt // Validate 1-5 ở tầng code NestJS
   title            String?   @db.VarChar(200)
   body             String?   @db.Text
   helpful_count    Int       @default(0)
-  status           ReviewStatus
+  status           ReviewStatus @default(pending)
   created_at       DateTime  @default(now()) @db.Timestamptz
 
+  @@index([book_id])
+  @@index([user_id])
+  @@index([status])
+  @@unique([user_id, book_id, order_id])
   @@map("reviews")
 }
 
 model UserBehaviorEvent {
   event_id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id          String?   @db.Uuid // Nullable cho khách anonymous
-  user             User?     @relation(fields: [user_id], references: [user_id])
-  session_id       String    @db.Uuid
+  user             User?     @relation(fields: [user_id], references: [user_id], onDelete: SetNull)
+  session_id       String?   @db.Uuid
   event_type       EventType
   book_id          String?   @db.Uuid
-  book             Book?     @relation(fields: [book_id], references:[book_id])
+  book             Book?     @relation(fields: [book_id], references:[book_id], onDelete: SetNull)
   search_query     String?   @db.Text
   duration_sec     Int?
-  metadata         Json?
+  metadata         Json      @default("{}")
   created_at       DateTime  @default(now()) @db.Timestamptz
 
   @@index([user_id, created_at(sort: Desc)])
   @@index([book_id, event_type])
+  @@index([session_id])
   @@map("user_behavior_events")
 }

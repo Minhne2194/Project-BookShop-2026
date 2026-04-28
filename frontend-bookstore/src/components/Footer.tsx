@@ -5,7 +5,6 @@ export function Footer() {
   return (
     <footer className="bg-slate-900 text-slate-300 py-12 border-t border-slate-800 mt-auto">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Cột 1: Thông tin thương hiệu */}
         <div>
           <Link to="/" className="flex items-center gap-2 text-white mb-6">
             <BookOpen className="w-6 h-6 text-indigo-400" />
@@ -31,19 +30,17 @@ export function Footer() {
           </div>
         </div>
         
-        {/* Cột 2: Danh mục */}
         <div>
           <h3 className="text-white font-semibold mb-4 text-lg">Danh mục</h3>
           <ul className="space-y-3 text-sm">
-            <li><Link to="/search?category=Văn học" className="hover:text-indigo-400 transition-colors">Văn học</Link></li>
-            <li><Link to="/search?category=Kinh tế" className="hover:text-indigo-400 transition-colors">Kinh tế</Link></li>
-            <li><Link to="/search?category=Tâm lý - Kỹ năng sống" className="hover:text-indigo-400 transition-colors">Tâm lý - Kỹ năng sống</Link></li>
+            <li><Link to="/search?category=Sách văn học" className="hover:text-indigo-400 transition-colors">Sách văn học</Link></li>
+            <li><Link to="/search?category=Sách kinh tế" className="hover:text-indigo-400 transition-colors">Sách kinh tế</Link></li>
+            <li><Link to="/search?category=Sách Tâm lý - Giới tính" className="hover:text-indigo-400 transition-colors">Sách Tâm lý - Giới tính</Link></li>
             <li><Link to="/search?category=Sách thiếu nhi" className="hover:text-indigo-400 transition-colors">Sách thiếu nhi</Link></li>
-            <li><Link to="/search?category=Ngoại ngữ" className="hover:text-indigo-400 transition-colors">Ngoại ngữ</Link></li>
+            <li><Link to="/search?category=Sách Học Ngoại Ngữ" className="hover:text-indigo-400 transition-colors">Sách Học Ngoại Ngữ</Link></li>
           </ul>
         </div>
 
-        {/* Cột 3: Hỗ trợ */}
         <div>
           <h3 className="text-white font-semibold mb-4 text-lg">Hỗ trợ khách hàng</h3>
           <ul className="space-y-3 text-sm">
@@ -54,7 +51,6 @@ export function Footer() {
           </ul>
         </div>
 
-        {/* Cột 4: Newsletter */}
         <div>
           <h3 className="text-white font-semibold mb-4 text-lg">Đăng ký nhận tin</h3>
           <p className="text-sm text-slate-400 mb-4">Nhận thông tin sách mới và ưu đãi đặc biệt.</p>
@@ -72,7 +68,6 @@ export function Footer() {
         </div>
       </div>
 
-      {/* Dải dưới cùng */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-8 border-t border-slate-800 text-sm text-center text-slate-500 flex flex-col md:flex-row justify-between items-center gap-4">
         <p>© 2026 Modern Book. All Rights Reserved.</p>
         <div className="flex gap-4">

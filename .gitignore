@@ -1,11 +1,47 @@
+# Dependencies
 node_modules/
+**/node_modules/
+venv/
+**/venv/
+.venv/
+**/__pycache__/
+*.py[cod]
+
+# Build outputs
 dist/
 build/
-.env
-*.log
+**/dist/
+**/build/
 .cache/
 .bin/
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database
 .prisma/
-tree
+*.db
+*.sqlite
+
+# Large Data/Drafts
+draft-data.json
+backend-bookstore/scripts/crawler/output/
+
+# Project tools
 tree.txt
 tree_*.txt
+
+# OS & IDEs
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

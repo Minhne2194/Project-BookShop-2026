@@ -14,6 +14,11 @@ export class CategoriesService {
   async findAll() {
     return this.prisma.category.findMany({
       include: { children: true },
+      orderBy: [
+        { level: 'asc' },
+        { sort_order: 'asc' },
+        { name: 'asc' },
+      ],
     });
   }
 }

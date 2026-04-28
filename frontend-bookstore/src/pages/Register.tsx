@@ -12,10 +12,10 @@ export function Register() {
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingText, setLoadingText] = useState('Đang xử lý...'); // Chữ hiển thị khi loading
+    const [loadingText, setLoadingText] = useState('Đang xử lý...');
 
     const navigate = useNavigate();
-    const { setToken } = useCart(); // Hàm lưu token vào hệ thống
+    const { setToken } = useCart();
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -29,7 +29,7 @@ export function Register() {
         setLoadingText('Đang tạo tài khoản...');
 
         try {
-            // 1. Gọi API Đăng ký
+
             const registerRes = await fetch('http://localhost:3000/users/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ export function Register() {
                 throw new Error(errData?.message || 'Đăng ký thất bại. Email có thể đã tồn tại!');
             }
 
-            // 2. Đăng ký xong -> Đổi text loading và Tự động gọi API Đăng nhập
+
             setLoadingText('Đang thiết lập không gian của bạn...');
             const loginRes = await fetch('http://localhost:3000/auth/login', {
                 method: 'POST',
@@ -56,15 +56,15 @@ export function Register() {
             if (loginRes.ok) {
                 const loginData = await loginRes.json();
                 localStorage.setItem('token', loginData.access_token);
-                setToken(loginData.access_token); // Cập nhật token vào Context và LocalStorage
+                setToken(loginData.access_token);
 
 
-                // Trễ nửa giây để người dùng thấy hiệu ứng mượt mà rồi mới chuyển trang
+
                 setTimeout(() => {
                     navigate('/account');
                 }, 500);
             } else {
-                // Xử lý dự phòng nếu lỗi đăng nhập ngầm
+
                 navigate('/login');
             }
 
@@ -77,7 +77,7 @@ export function Register() {
     return (
         <div className="bg-slate-50 min-h-[calc(100vh-80px)] flex items-center justify-center p-4 relative">
             
-            {/* MÀN HÌNH LOADING OVERLAY (Chỉ hiện khi isLoading = true) */}
+
             {isLoading && (
                 <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm transition-all">
                     <div className="relative flex justify-center items-center">

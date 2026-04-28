@@ -1,19 +1,42 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Search, User, Menu, X, BookOpen, LogOut } from 'lucide-react';
+import { ShoppingCart, Search, User, Menu, X, BookOpen, LogOut, Globe } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const CATEGORIES = ['Văn học', 'Kinh tế', 'Tâm lý - Kỹ năng sống', 'Sách thiếu nhi', 'Ngoại ngữ'];
+const CATEGORIES = [
+  'Sách văn học',
+  'Sách kinh tế',
+  'Sách thiếu nhi',
+  'Sách kỹ năng sống',
+  'Nuôi dạy con',
+  'Sách Giáo Khoa - Giáo Trình',
+  'Sách Học Ngoại Ngữ',
+  'Sách Tham Khảo',
+  'Từ Điển',
+  'Sách Kiến Thức Tổng Hợp',
+  'Sách Khoa Học - Kỹ Thuật',
+  'Sách Lịch sử',
+  'Điện Ảnh - Nhạc - Họa',
+  'Truyện Tranh, Manga, Comic',
+  'Sách Tôn Giáo - Tâm Linh',
+  'Sách Văn Hóa - Địa Lý - Du Lịch',
+  'Sách Chính Trị - Pháp Lý',
+  'Sách Nông - Lâm - Ngư Nghiệp',
+  'Sách Công Nghệ Thông Tin',
+  'Sách Y Học',
+  'Tạp Chí - Catalogue',
+  'Sách Tâm lý - Giới tính',
+  'Sách Thường Thức - Gia Đình',
+  'Thể Dục - Thể Thao'
+];
 
 export function Header() {
-  // --- STATES CHO GIAO DIỆN ---
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  // --- LẤY DỮ LIỆU TỪ CONTEXT ---
   const { token, setToken, cartCount } = useCart();
 
   const handleSearch = (e: React.FormEvent) => {
@@ -28,13 +51,12 @@ export function Header() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
-    navigate('/'); // Đẩy về trang chủ sau khi đăng xuất
+    navigate('/');
   };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-indigo-100 bg-white/95 backdrop-blur-md shadow-sm">
       <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-4 md:gap-8">
-        {/* Mobile menu button */}
         <button
           className="md:hidden p-2 text-indigo-900 -ml-2"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -42,7 +64,6 @@ export function Header() {
           {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
 
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2 text-indigo-950 shrink-0">
           <BookOpen className="w-8 h-8 text-indigo-600" />
           <span className="text-xl md:text-2xl font-bold font-serif tracking-tight">
@@ -50,7 +71,6 @@ export function Header() {
           </span>
         </Link>
 
-        {/* Desktop Search Bar */}
         <div className="hidden md:block flex-1 max-w-2xl">
           <form onSubmit={handleSearch} className="relative">
             <input
@@ -66,7 +86,6 @@ export function Header() {
           </form>
         </div>
 
-        {/* Right Actions */}
         <div className="flex items-center gap-3 sm:gap-6 shrink-0">
           <button
             onClick={() => setIsSearchOpen(!isSearchOpen)}
@@ -75,10 +94,17 @@ export function Header() {
             <Search className="w-5 h-5" />
           </button>
 
-          {/* Xử lý Đăng nhập / Đã đăng nhập cho Desktop */}
+          <Link to="/cart" className="p-2 text-slate-600 hover:text-indigo-600 transition-colors relative flex items-center">
+            <ShoppingCart className="w-6 h-6 stroke-[1.5]" />
+            {cartCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                {cartCount}
+              </span>
+            )}
+          </Link>
+
           {token ? (
             <div className="hidden sm:flex items-center gap-4">
-              {/* Đã cập nhật: Trỏ thẳng vào trang /account */}
               <Link to="/account" className="flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-indigo-600 transition-colors">
                 <User className="w-5 h-5 text-indigo-600" /> Tài khoản
               </Link>
@@ -95,21 +121,26 @@ export function Header() {
             </Link>
           )}
 
-          <Link to="/cart" className="p-2 text-slate-600 hover:text-indigo-600 transition-colors relative flex items-center">
-            <ShoppingCart className="w-6 h-6 stroke-[1.5]" />
-            {cartCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+          {/* Language Selector */}
+          <div className="relative group hidden sm:flex items-center">
+            <button className="flex items-center gap-1 text-sm font-bold text-slate-700 hover:text-indigo-600 transition-colors p-2">
+              <Globe className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors" /> VN
+            </button>
+            <div className="absolute top-full right-0 w-36 bg-white rounded-lg shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 origin-top">
+              <button className="w-full text-left px-4 py-2.5 text-sm text-indigo-700 bg-indigo-50/50 font-bold hover:bg-indigo-50 transition-colors">Tiếng Việt (VN)</button>
+              <button className="w-full text-left px-4 py-2.5 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 font-medium transition-colors">English (EN)</button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Desktop Nav - Bottom Row */}
-      <nav className="hidden md:flex border-t border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-center gap-6 lg:gap-8 overflow-x-auto no-scrollbar">
-          {CATEGORIES.map(cat => (
+      <nav className="hidden md:flex border-t border-slate-100 bg-white">
+        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-center gap-4 lg:gap-8">
+          <Link to="/search" className="text-sm font-bold text-indigo-700 hover:text-indigo-800 transition-colors whitespace-nowrap">
+            Tất cả sách
+          </Link>
+          <div className="h-4 w-px bg-slate-300"></div>
+          {CATEGORIES.slice(0, 8).map(cat => (
             <Link
               key={cat}
               to={`/search?category=${encodeURIComponent(cat)}`}
@@ -121,7 +152,6 @@ export function Header() {
         </div>
       </nav>
 
-      {/* Mobile Search Bar Dropdown */}
       <AnimatePresence>
         {isSearchOpen && (
           <motion.div
@@ -149,7 +179,6 @@ export function Header() {
         )}
       </AnimatePresence>
 
-      {/* Mobile Menu */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <motion.div
@@ -158,8 +187,11 @@ export function Header() {
             exit={{ opacity: 0, y: -20 }}
             className="md:hidden absolute top-[80px] left-0 right-0 bg-white border-b border-indigo-100 shadow-xl"
           >
-            <div className="flex flex-col p-4 gap-4">
-              {CATEGORIES.map(cat => (
+            <div className="flex flex-col p-4 gap-4 max-h-[70vh] overflow-y-auto">
+              <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-indigo-700 hover:text-indigo-800 transition-colors">
+                Tất cả sách
+              </Link>
+              {CATEGORIES.slice(0, 8).map(cat => (
                 <Link
                   key={cat}
                   to={`/search?category=${encodeURIComponent(cat)}`}
@@ -172,10 +204,8 @@ export function Header() {
 
               <div className="h-px bg-slate-100 w-full my-2" />
 
-              {/* Trạng thái đăng nhập trên Mobile */}
               {token ? (
                 <>
-                  {/* Đã cập nhật: Thêm link tới trang tài khoản cho Mobile */}
                   <Link to="/account" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-2 text-lg font-medium text-slate-700 hover:text-indigo-600 transition-colors">
                     <User className="w-5 h-5" /> Tài khoản
                   </Link>

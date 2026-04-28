@@ -4,8 +4,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { CheckCircle2, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { SafeImage } from '../components/SafeImage';
 
-// Khai báo Interface (giống ở trang Cart)
 interface Book {
     book_id: string;
     title: string;
@@ -14,7 +14,6 @@ interface Book {
 }
 
 export function Checkout() {
-    // --- 1. STATES & CONTEXT ---
     const { token, cartItems, fetchCart } = useCart();
     const navigate = useNavigate();
 
@@ -30,12 +29,20 @@ export function Checkout() {
         paymentMethod: 'cod'
     });
 
-    // --- 2. FETCH THÔNG TIN SÁCH ĐỂ HIỂN THỊ ĐƠN HÀNG ---
     useEffect(() => {
+        if (cartItems.length === 0) {
+            setBooks([]);
+            setLoading(false);
+            return;
+        }
+
+        const ids = cartItems.map(item => item.bookId).join(',');
+
         setLoading(true);
-        fetch('http://localhost:3000/books')
+        fetch(`http://localhost:3000/books?ids=${ids}`)
             .then((res) => res.json())
-            .then((data) => {
+            .then((resData) => {
+                const data = resData.data ? resData.data : resData;
                 setBooks(data);
                 setLoading(false);
             })
@@ -43,9 +50,8 @@ export function Checkout() {
                 console.error("Lỗi tải sách:", err);
                 setLoading(false);
             });
-    }, []);
+    }, [cartItems]);
 
-    // --- 3. GHÉP DỮ LIỆU & TÍNH TỔNG TIỀN ---
     const cartDetails = useMemo(() => {
         return cartItems.map(cartItem => {
             const bookDetail = books.find(b => b.book_id === cartItem.bookId);
@@ -55,14 +61,12 @@ export function Checkout() {
 
     const totalPrice = cartDetails.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
 
-    // Nếu giỏ hàng trống (mà chưa đặt hàng thành công) thì đẩy về trang /cart
     useEffect(() => {
         if (!loading && cartItems.length === 0 && !isSuccess) {
             navigate('/cart');
         }
     }, [loading, cartItems.length, isSuccess, navigate]);
 
-    // --- 4. HÀM XỬ LÝ ĐẶT HÀNG ---
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) {
@@ -73,7 +77,6 @@ export function Checkout() {
         setIsSubmitting(true);
 
         try {
-            // Gọi API Thanh toán (Sử dụng đúng cấu trúc bạn gửi ban đầu)
             const res = await fetch('http://localhost:3000/orders/checkout', {
                 method: 'POST',
                 headers: {
@@ -92,9 +95,8 @@ export function Checkout() {
 
             if (res.ok) {
                 setIsSuccess(true);
-                fetchCart(); // Cập nhật (xóa) giỏ hàng trên UI do backend đã xử lý đơn
+                fetchCart();
 
-                // Hiệu ứng pháo hoa
                 triggerConfetti();
             } else {
                 const err = await res.json();
@@ -107,7 +109,6 @@ export function Checkout() {
         }
     };
 
-    // Hàm chạy hiệu ứng pháo hoa
     const triggerConfetti = () => {
         const duration = 3 * 1000;
         const animationEnd = Date.now() + duration;
@@ -125,14 +126,11 @@ export function Checkout() {
         }, 250);
     };
 
-    // Hàm format tiền
     const formatPrice = (price: string | number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
     };
 
-    // --- 5. RENDER ---
 
-    // Màn hình thành công
     if (isSuccess) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center pt-20 px-4">
@@ -162,7 +160,6 @@ export function Checkout() {
         );
     }
 
-    // Màn hình Checkout
     return (
         <div className="min-h-screen bg-slate-50 py-12">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -172,7 +169,6 @@ export function Checkout() {
                 <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">Thanh toán</h1>
 
                 <div className="grid md:grid-cols-2 gap-8">
-                    {/* Form điền thông tin */}
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 h-max">
                         <h2 className="text-xl font-bold text-slate-900 mb-6">Thông tin giao hàng</h2>
                         <form onSubmit={handleSubmit} id="checkout-form" className="space-y-4">
@@ -205,7 +201,6 @@ export function Checkout() {
                         </form>
                     </div>
 
-                    {/* Tóm tắt đơn hàng */}
                     <div>
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 sticky top-24">
                             <h2 className="text-xl font-bold text-slate-900 mb-6">Đơn hàng ({cartDetails.length} sản phẩm)</h2>
@@ -215,7 +210,7 @@ export function Checkout() {
                                     {cartDetails.map(item => (
                                         <div key={item.bookId} className="flex gap-4">
                                             <div className="relative shrink-0 w-16 h-24">
-                                                <img src={item.cover_url || "https://placehold.co/100x150"} alt={item.title} className="w-full h-full object-cover rounded-md shadow-sm" />
+                                                <SafeImage src={item.cover_url || "https://placehold.co/100x150"} alt={item.title} className="w-full h-full object-cover rounded-md shadow-sm" />
                                                 <span className="absolute -top-2 -right-2 w-5 h-5 bg-indigo-600 text-white rounded-full text-[11px] flex items-center justify-center font-bold z-10 shadow-sm border border-white">
                                                     {item.quantity}
                                                 </span>

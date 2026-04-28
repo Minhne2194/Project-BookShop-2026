@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as argon2 from 'argon2';
-import { async } from 'rxjs';
+
 
 @Injectable()
 export class UsersService {
@@ -42,15 +42,15 @@ export class UsersService {
     });
   }
 
-  // Lấy thông tin cá nhân
+
   async getProfile(userId: string) {
     return this.prisma.user.findUnique({
       where: { user_id: userId },
-      select: { email: true, full_name: true, phone: true } // Chỉ lấy thông tin cần thiết
+      select: { email: true, full_name: true, phone: true }
     });
   }
 
-  // Cập nhật thông tin cá nhân
+
   async updateProfile(userId: string, data: { full_name?: string; phone?: string }) {
     return this.prisma.user.update({
       where: { user_id: userId },

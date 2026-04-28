@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Home } from './pages/Home';
@@ -10,10 +11,20 @@ import { Admin } from './pages/Admin';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { Account } from './pages/Account';
-// Import các trang khác...
+import { NewBooks } from './pages/NewBooks';
+import { BestSellers } from './pages/BestSellers';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
 
 function StoreLayout() {
   return (
@@ -32,17 +43,19 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <Routes>
             <Route element={<StoreLayout />}>
               <Route path="/" element={<Home />} />
               <Route path="/search" element={<Search />} />
+              <Route path="/new-books" element={<NewBooks />} />
+              <Route path="/best-sellers" element={<BestSellers />} />
               <Route path="/book/:bookId" element={<BookDetail />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/account" element={<Account />} />
-              {/* Thêm các route khác ở đây */}
             </Route>
             <Route path="/admin/*" element={<Admin />} />
           </Routes>

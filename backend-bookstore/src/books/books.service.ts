@@ -5,60 +5,249 @@ import { PrismaService } from '../prisma/prisma.service';
 export class BooksService {
   constructor(private prisma: PrismaService) {}
 
+
   async create(data: any) {
-    return this.prisma.book.create({
+    const { author_ids, category_ids, is_primary_category, ...bookData } = data;
+
+    const book = await this.prisma.book.create({
       data: {
-        title: data.title,
-        slug: data.slug,
-        price: data.price,
-        stock_qty: data.stock_qty,
-        description: data.description,
-        cover_url: data.cover_url,
+        title: bookData.title,
+        slug: bookData.slug,
+        price: bookData.price,
+        compare_price: bookData.compare_price,
+        stock_qty: bookData.stock_qty ?? 0,
+        description: bookData.description,
+        cover_url: bookData.cover_url,
+        language: bookData.language ?? 'vi',
+        publish_year: bookData.publish_year,
+        page_count: bookData.page_count,
+        publisher_id: bookData.publisher_id ?? null,
+        isbn: bookData.isbn ?? null,
+        is_active: bookData.is_active ?? true,
+        metadata: bookData.metadata ?? {},
       },
     });
+
+
+    if (author_ids?.length) {
+      await this.prisma.bookAuthor.createMany({
+        data: author_ids.map((id: string) => ({
+          book_id: book.book_id,
+          author_id: id,
+          role: 'author',
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+
+    if (category_ids?.length) {
+      await this.prisma.bookCategory.createMany({
+        data: category_ids.map((id: string, idx: number) => ({
+          book_id: book.book_id,
+          category_id: id,
+          is_primary: idx === 0,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return this.findOne(book.book_id);
   }
 
-  async findAll() {
-    return this.prisma.book.findMany({
-      orderBy: { created_at: 'desc' },
-    });
+
+  async findAll(
+    page: number = 1,
+    limit: number = 100,
+    filters: {
+      ids?: string;
+      sort?: string;
+      category?: string;
+      author?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      lang?: string;
+    } = {},
+  ) {
+    const skip = (page - 1) * limit;
+    const where: any = { is_active: true };
+
+    if (filters.ids) {
+      where.book_id = { in: filters.ids.split(',') };
+    }
+    if (filters.lang) {
+      where.language = filters.lang;
+    }
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.price = {};
+      if (filters.minPrice !== undefined) where.price.gte = filters.minPrice;
+      if (filters.maxPrice !== undefined) where.price.lte = filters.maxPrice;
+    }
+    if (filters.category) {
+      where.book_categories = {
+        some: {
+          category: {
+            OR: [
+              { category_id: filters.category },
+              { slug: filters.category },
+              { name: { equals: filters.category, mode: 'insensitive' } },
+            ],
+          },
+        },
+      };
+    }
+    if (filters.author) {
+      where.book_authors = { some: { author_id: filters.author } };
+    }
+
+    let orderByClause: any = { created_at: 'desc' };
+    if (filters.sort === 'bestseller') orderByClause = { sold_count: 'desc' };
+    else if (filters.sort === 'newest') orderByClause = { created_at: 'desc' };
+    else if (filters.sort === 'price_asc') orderByClause = { price: 'asc' };
+    else if (filters.sort === 'price_desc') orderByClause = { price: 'desc' };
+    else if (filters.sort === 'rating') orderByClause = { avg_rating: 'desc' };
+
+    const [total, books] = await Promise.all([
+      this.prisma.book.count({ where }),
+      this.prisma.book.findMany({
+        where, skip, take: limit, orderBy: orderByClause,
+        include: {
+          book_categories: { include: { category: { include: { parent: true } } } },
+          book_authors: { include: { author: true } },
+          publisher: true,
+        },
+      }),
+    ]);
+
+    const data = books.map(book => this.formatBook(book));
+    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
   }
+
+
+  async search(q: string) {
+    if (!q?.trim()) return { data: [], meta: { total: 0 } };
+
+    const keyword = `%${q.trim()}%`;
+    const books = await this.prisma.book.findMany({
+      where: {
+        is_active: true,
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+          { book_authors: { some: { author: { name: { contains: q, mode: 'insensitive' } } } } },
+        ],
+      },
+      take: 50,
+      include: {
+        book_categories: { include: { category: { include: { parent: true } } } },
+        book_authors: { include: { author: true } },
+        publisher: true,
+      },
+      orderBy: { sold_count: 'desc' },
+    });
+
+    return { data: books.map(b => this.formatBook(b)), meta: { total: books.length } };
+  }
+
+
+  async findBySlug(slug: string) {
+    const book = await this.prisma.book.findUnique({
+      where: { slug },
+      include: {
+        book_categories: { include: { category: { include: { parent: true } } } },
+        book_authors: { include: { author: true } },
+        publisher: true,
+      },
+    });
+    if (!book) return null;
+    return this.formatBook(book);
+  }
+
 
   async findOne(id: string) {
-    return this.prisma.book.findUnique({
+    const book = await this.prisma.book.findUnique({
       where: { book_id: id },
-    });
-  }
-
-
-// 4. Cập nhật thông tin sách (PUT)
-  async update(id: string, data: any) {
-    return this.prisma.book.update({
-      where: { book_id: id },
-      data: {
-        title: data.title,
-        slug: data.slug,
-        price: data.price,
-        stock_qty: data.stock_qty,
-        description: data.description,
-        cover_url: data.cover_url,
+      include: {
+        book_categories: { include: { category: { include: { parent: true } } } },
+        book_authors: { include: { author: true } },
+        publisher: true,
       },
     });
+    if (!book) return null;
+    return this.formatBook(book);
   }
 
-  // 5. Xóa sách (DELETE)
+
+  async update(id: string, data: any) {
+    const { author_ids, category_ids, ...bookData } = data;
+
+    await this.prisma.book.update({
+      where: { book_id: id },
+      data: {
+        title: bookData.title,
+        slug: bookData.slug,
+        price: bookData.price,
+        compare_price: bookData.compare_price,
+        stock_qty: bookData.stock_qty,
+        description: bookData.description,
+        cover_url: bookData.cover_url,
+        language: bookData.language,
+        publish_year: bookData.publish_year,
+        page_count: bookData.page_count,
+        publisher_id: bookData.publisher_id,
+        is_active: bookData.is_active,
+      },
+    });
+
+
+    if (author_ids !== undefined) {
+      await this.prisma.bookAuthor.deleteMany({ where: { book_id: id } });
+      if (author_ids.length) {
+        await this.prisma.bookAuthor.createMany({
+          data: author_ids.map((aid: string) => ({ book_id: id, author_id: aid, role: 'author' })),
+        });
+      }
+    }
+    if (category_ids !== undefined) {
+      await this.prisma.bookCategory.deleteMany({ where: { book_id: id } });
+      if (category_ids.length) {
+        await this.prisma.bookCategory.createMany({
+          data: category_ids.map((cid: string, idx: number) => ({
+            book_id: id, category_id: cid, is_primary: idx === 0,
+          })),
+        });
+      }
+    }
+
+    return this.findOne(id);
+  }
+
+
   async remove(id: string) {
     try {
-      await this.prisma.book.delete({
-        where: { book_id: id },
-      });
+      await this.prisma.book.delete({ where: { book_id: id } });
       return { message: 'Xóa sách thành công!' };
-    } catch (error) {
-      // Bắt lỗi: Nếu sách đã nằm trong đơn hàng của khách thì không cho xóa cứng
+    } catch (error: any) {
       if (error.code === 'P2003') {
         throw new BadRequestException('Không thể xóa! Cuốn sách này đã nằm trong hóa đơn của khách hàng.');
       }
       throw new BadRequestException('Có lỗi xảy ra khi xóa sách.');
     }
+  }
+
+
+  private formatBook(book: any) {
+    const { book_categories, book_authors, publisher, ...rest } = book;
+    const primaryCat = book_categories?.[0]?.category;
+    const rootCategory = primaryCat?.parent?.name || primaryCat?.name || 'Tất cả';
+    return {
+      ...rest,
+      category: rootCategory,
+      categories: book_categories?.map((bc: any) => bc.category) ?? [],
+      author: book_authors?.map((ba: any) => ba.author.name).join(', ') || 'Khuyết danh',
+      authors: book_authors?.map((ba: any) => ba.author) ?? [],
+      publisher: publisher?.name || 'Đang cập nhật',
+      publisher_id: publisher?.publisher_id,
+    };
   }
 }

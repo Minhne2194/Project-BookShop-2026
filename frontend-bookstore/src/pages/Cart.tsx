@@ -3,8 +3,8 @@ import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { SafeImage } from '../components/SafeImage';
 
-// Khai báo Interface
 interface Book {
     book_id: string;
     title: string;
@@ -14,18 +14,25 @@ interface Book {
 }
 
 export function Cart() {
-    // --- 1. STATES & CONTEXT ---
     const { token, cartItems, fetchCart } = useCart();
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const navigate = useNavigate();
 
-    // --- 2. FETCH THÔNG TIN SÁCH ĐỂ GHÉP VỚI GIỎ HÀNG ---
     useEffect(() => {
+        if (cartItems.length === 0) {
+            setBooks([]);
+            setLoading(false);
+            return;
+        }
+
+        const ids = cartItems.map(item => item.bookId).join(',');
+        
         setLoading(true);
-        fetch('http://localhost:3000/books')
+        fetch(`http://localhost:3000/books?ids=${ids}`)
             .then((res) => res.json())
-            .then((data) => {
+            .then((resData) => {
+                const data = resData.data ? resData.data : resData;
                 setBooks(data);
                 setLoading(false);
             })
@@ -33,23 +40,19 @@ export function Cart() {
                 console.error("Lỗi tải sách:", err);
                 setLoading(false);
             });
-    }, []);
+    }, [cartItems]);
 
-    // --- 3. GHÉP DỮ LIỆU (MERGE DATA) ---
     const cartDetails = useMemo(() => {
         return cartItems.map(cartItem => {
             const bookDetail = books.find(b => b.book_id === cartItem.bookId);
             return { ...cartItem, ...bookDetail };
-        }).filter(item => item.title); // Chỉ giữ lại những item tìm thấy thông tin sách
+        }).filter(item => item.title);
     }, [cartItems, books]);
 
-    // Tính tổng tiền
     const totalPrice = cartDetails.reduce((sum, item) => {
         return sum + (Number(item.price || 0) * item.quantity);
     }, 0);
 
-    // --- 4. CÁC HÀM TƯƠNG TÁC API GIỎ HÀNG ---
-    // (Lưu ý: Bạn cần chỉnh sửa URL '/cart/update' và '/cart/remove' cho đúng với Backend của bạn)
 
     const handleUpdateQuantity = async (bookId: string, newQuantity: number) => {
         if (newQuantity < 1) return;
@@ -57,14 +60,14 @@ export function Cart() {
 
         try {
             const res = await fetch('http://localhost:3000/cart/update', {
-                method: 'PUT', // Hoặc POST tùy backend của bạn
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({ bookId, quantity: newQuantity })
             });
-            if (res.ok) fetchCart(); // Cập nhật lại UI
+            if (res.ok) fetchCart();
         } catch (err) {
             console.error("Lỗi cập nhật số lượng", err);
         }
@@ -76,14 +79,14 @@ export function Cart() {
 
         try {
             const res = await fetch('http://localhost:3000/cart/remove', {
-                method: 'DELETE', // Hoặc POST tùy backend của bạn
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({ bookId })
             });
-            if (res.ok) fetchCart(); // Cập nhật lại UI
+            if (res.ok) fetchCart();
         } catch (err) {
             console.error("Lỗi xóa sản phẩm", err);
         }
@@ -93,9 +96,7 @@ export function Cart() {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
     };
 
-    // --- 5. RENDER GIAO DIỆN ---
 
-    // Trạng thái chưa đăng nhập
     if (!token) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -105,7 +106,6 @@ export function Cart() {
         );
     }
 
-    // Trạng thái Loading
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-50 flex justify-center items-center">
@@ -114,7 +114,6 @@ export function Cart() {
         );
     }
 
-    // Trạng thái Giỏ hàng trống
     if (cartDetails.length === 0) {
         return (
             <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -128,14 +127,12 @@ export function Cart() {
         );
     }
 
-    // Giao diện chính Giỏ hàng
     return (
         <div className="min-h-screen bg-slate-50 py-12">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">Giỏ Hàng</h1>
 
                 <div className="grid lg:grid-cols-3 gap-8">
-                    {/* Cột danh sách sản phẩm */}
                     <div className="lg:col-span-2 space-y-4">
                         {cartDetails.map(item => (
                             <motion.div
@@ -143,7 +140,7 @@ export function Cart() {
                                 key={item.bookId}
                                 className="bg-white p-4 flex gap-4 rounded-2xl shadow-sm border border-slate-100 items-center"
                             >
-                                <img src={item.cover_url || "https://placehold.co/100x150"} alt={item.title} className="w-20 h-28 object-cover rounded-lg shadow-sm" />
+                                <SafeImage src={item.cover_url || "https://placehold.co/100x150"} alt={item.title} className="w-20 h-28 object-cover rounded-lg shadow-sm" />
                                 <div className="flex-1">
                                     <Link to={`/book/${item.bookId}`} className="font-bold text-slate-900 hover:text-indigo-600 transition-colors line-clamp-1">
                                         {item.title}
@@ -166,7 +163,6 @@ export function Cart() {
                         ))}
                     </div>
 
-                    {/* Cột Tổng tiền & Thanh toán */}
                     <div className="lg:col-span-1">
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 sticky top-24">
                             <h3 className="text-lg font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Tổng cộng</h3>

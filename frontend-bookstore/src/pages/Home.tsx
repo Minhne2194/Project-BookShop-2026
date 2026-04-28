@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { SafeImage } from '../components/SafeImage';
 
 interface Book {
+  description: string;
   book_id: string;
   title: string;
   price: string | number;
@@ -12,34 +14,31 @@ interface Book {
 }
 
 export function Home() {
-  // --- 1. STATE & CONTEXT ---
-  const [books, setBooks] = useState<Book[]>([]);
+  const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
+  const [newBooks, setNewBooks] = useState<Book[]>([]);
+  const [bestSellers, setBestSellers] = useState<Book[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { handleAddToCart } = useCart();
 
   const newBooksScrollRef = useRef<HTMLDivElement>(null);
   const bestSellersScrollRef = useRef<HTMLDivElement>(null);
 
-  // --- 2. FETCH DATA ---
   useEffect(() => {
-    fetch('http://localhost:3000/books')
-      .then((res) => res.json())
-      .then((data) => {
-        setBooks(data);
+      Promise.all([
+        fetch('http://localhost:3000/books?limit=12').then(res => res.json()),
+        fetch('http://localhost:3000/books?sort=newest&limit=10').then(res => res.json()),
+        fetch('http://localhost:3000/books?sort=bestseller&limit=10').then(res => res.json())
+      ]).then(([featuredRes, newRes, bsRes]) => {
+        setFeaturedBooks(featuredRes.data || featuredRes);
+        setNewBooks(newRes.data || newRes);
+        setBestSellers(bsRes.data || bsRes);
+        setLoading(false);
+      }).catch(err => {
+        console.error("Lỗi lấy dữ liệu:", err);
         setLoading(false);
       });
-  }, []);
+    }, []);
 
-  // --- 3. CHUẨN BỊ DỮ LIỆU HIỂN THỊ CHO THANH CUỘN ---
-  // Tạm thời chia mảng sách thật để giả lập Sách Mới và Bán Chạy
-  const newBooksFiltered = books.slice(0, 5);
-  const bestSellersFiltered = books.slice().reverse().slice(0, 5);
-
-  // Nhân bản để thanh cuộn hoạt động mượt mà (như ý tưởng ban đầu của bạn)
-  const scrollingNewBooks = [...newBooksFiltered, ...newBooksFiltered, ...newBooksFiltered, ...newBooksFiltered];
-  const scrollingBestSellers = [...bestSellersFiltered, ...bestSellersFiltered, ...bestSellersFiltered, ...bestSellersFiltered];
-
-  // --- 4. CÁC HÀM TIỆN ÍCH ---
   const scroll = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
     if (ref.current) {
       const scrollAmount = 300;
@@ -53,7 +52,6 @@ export function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-      {/* --- HERO SECTION --- */}
       <section className="relative bg-indigo-950 text-white overflow-hidden py-16 md:py-24">
         <div className="absolute inset-0 opacity-20 bg-[url('https://picsum.photos/id/1073/1920/1080')] bg-cover bg-center mix-blend-overlay" />
         <div className="max-w-7xl mx-auto px-4 relative z-10 grid md:grid-cols-2 gap-12 items-center">
@@ -82,21 +80,23 @@ export function Home() {
             className="hidden md:flex justify-end"
           >
             <div className="grid grid-cols-2 gap-4">
-              <img src="https://picsum.photos/seed/book1/300/450" className="w-48 rounded-xl shadow-2xl -rotate-6 transform hover:rotate-0 transition-transform duration-500" alt="Book cover" />
-              <img src="https://picsum.photos/seed/book2/300/450" className="w-48 rounded-xl shadow-2xl rotate-6 translate-y-8 transform hover:rotate-0 transition-transform duration-500" alt="Book cover" />
+              {featuredBooks[0] && <SafeImage src={featuredBooks[0].cover_url || "https://placehold.co/300x450"} className="w-48 rounded-xl shadow-2xl -rotate-6 transform hover:rotate-0 transition-transform duration-500 object-cover aspect-2/3" alt={featuredBooks[0].title} />}
+              {featuredBooks[1] && <SafeImage src={featuredBooks[1].cover_url || "https://placehold.co/300x450"} className="w-48 rounded-xl shadow-2xl rotate-6 translate-y-8 transform hover:rotate-0 transition-transform duration-500 object-cover aspect-2/3" alt={featuredBooks[1].title} />}
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* --- FEATURED SECTION (Banners & Tóm tắt) --- */}
       <section className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid md:grid-cols-2 gap-11 mb-11">
-          {/* Box Sách Mới */}
           <div className="bg-white rounded-lg flex flex-col sm:flex-row shadow-sm border border-slate-200">
-            <div className="flex gap-4 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
-              <img src={scrollingNewBooks[0]?.cover_url || "https://picsum.photos/seed/nb1/200/300"} alt="New Book 1" className="w-20 md:w-28 object-cover rounded shadow-md aspect-2/3" />
-              <img src={scrollingNewBooks[1]?.cover_url || "https://picsum.photos/seed/nb2/200/300"} alt="New Book 2" className="w-20 md:w-28 object-cover rounded shadow-md aspect-2/3" />
+            <div className="flex gap-3 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
+              {newBooks[0] && (
+                <SafeImage src={newBooks[0].cover_url || "https://placehold.co/200x300"} alt={newBooks[0].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
+              {newBooks[1] && (
+                <SafeImage src={newBooks[1].cover_url || "https://placehold.co/200x300"} alt={newBooks[1].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
             </div>
             <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
               <div className="flex items-center gap-3 mb-4">
@@ -104,17 +104,20 @@ export function Home() {
                 <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Sách mới</h3>
-              <Link to="/search" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
-                Xem tất cả ({newBooksFiltered.length})
+              <Link to="/new-books" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
+                Xem tất cả
               </Link>
             </div>
           </div>
 
-          {/* Box Bán Chạy */}
           <div className="bg-white rounded-lg flex flex-col sm:flex-row shadow-sm border border-slate-200">
-            <div className="flex gap-4 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
-              <img src={scrollingBestSellers[0]?.cover_url || "https://picsum.photos/seed/bs1/200/300"} alt="Best Seller 1" className="w-20 md:w-28 object-cover rounded shadow-md aspect-2/3" />
-              <img src={scrollingBestSellers[1]?.cover_url || "https://picsum.photos/seed/bs2/200/300"} alt="Best Seller 2" className="w-20 md:w-28 object-cover rounded shadow-md aspect-2/3" />
+            <div className="flex gap-3 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
+              {bestSellers[0] && (
+                <SafeImage src={bestSellers[0].cover_url || "https://placehold.co/200x300"} alt={bestSellers[0].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
+              {bestSellers[1] && (
+                <SafeImage src={bestSellers[1].cover_url || "https://placehold.co/200x300"} alt={bestSellers[1].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
             </div>
             <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
               <div className="flex items-center gap-3 mb-4">
@@ -122,56 +125,58 @@ export function Home() {
                 <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Bán chạy tuần này</h3>
-              <Link to="/search" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
-                Xem tất cả ({bestSellersFiltered.length})
+              <Link to="/best-sellers" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
+                Xem tất cả
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Promo Banners */}
         <div className="grid md:grid-cols-2 gap-11">
-          <div className="bg-[#eff4fc] rounded-lg py-7 px-4 sm:py-8 sm:px-4 flex flex-col sm:flex-row relative border border-slate-200 mt-4">
-            <div className="absolute -top-4 -left-2 bg-[#594d95] text-white font-bold text-xs tracking-wider uppercase px-3 py-1.5 shadow-sm">
-              Sách nổi bật
-              <div className="absolute top-full left-0 w-0 h-0 border-t-[6px] border-l-[6px] border-t-[#3b3266] border-l-transparent"></div>
+          {featuredBooks[2] && (
+            <div className="bg-[#eff4fc] rounded-lg py-7 px-4 sm:py-8 sm:px-4 flex flex-col sm:flex-row relative border border-slate-200 mt-4">
+              <div className="absolute -top-4 -left-2 bg-[#594d95] text-white font-bold text-xs tracking-wider uppercase px-3 py-1.5 shadow-sm">
+                Sách nổi bật
+                <div className="absolute top-full left-0 w-0 h-0 border-t-[6px] border-l-[6px] border-t-[#3b3266] border-l-transparent"></div>
+              </div>
+              <div className="w-28 md:w-32 shrink-0 mx-auto sm:mx-0 mt-6 sm:mt-2 mb-5 sm:mb-0 sm:mr-6 text-center sm:text-left bg-white p-2 rounded-md shadow-sm">
+                <SafeImage src={featuredBooks[2].cover_url || "https://placehold.co/300x450"} alt={featuredBooks[2].title} className="w-full object-contain mix-blend-multiply aspect-2/3" />
+              </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight">{featuredBooks[2].title}</h3>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed line-clamp-3">
+                  {featuredBooks[2].description || "Một tác phẩm nổi bật với những câu chuyện truyền cảm hứng và mang đến góc nhìn mới mẻ về cuộc sống."}
+                </p>
+                <Link to={`/book/${featuredBooks[2].book_id}`} className="bg-[#cc0f3a] hover:bg-[#a60b2e] text-white font-bold py-2.5 px-6 rounded-full transition-colors w-full sm:w-auto text-xs tracking-wide text-center inline-block">
+                  TÌM HIỂU THÊM
+                </Link>
+              </div>
             </div>
-            <div className="w-36 md:w-40 shrink-0 mx-auto sm:mx-0 mt-6 sm:mt-2 mb-5 sm:mb-0 sm:mr-6 text-center sm:text-left shadow-lg">
-              <img src={books[0]?.cover_url || "https://picsum.photos/seed/feat3/300/450"} alt="Featured 1" className="w-full object-cover rounded-sm aspect-2/3" />
-            </div>
-            <div className="flex-1 flex flex-col justify-center">
-              <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight">Mùa Xuân từ Putnam</h3>
-              <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                Một tựa sách mới từ nhà xuất bản danh tiếng. Những câu chuyện truyền cảm hứng và mang đến góc nhìn mới mẻ về cuộc sống và tình yêu.
-              </p>
-              <button className="bg-[#cc0f3a] hover:bg-[#a60b2e] text-white font-bold py-2.5 px-6 rounded-full transition-colors w-full sm:w-auto text-xs tracking-wide">
-                TÌM HIỂU THÊM
-              </button>
-            </div>
-          </div>
+          )}
 
-          <div className="bg-[#eff4fc] rounded-lg py-7 px-4 sm:py-8 sm:px-4 flex flex-col sm:flex-row relative border border-slate-200 mt-4">
-            <div className="absolute -top-4 -left-2 bg-[#594d95] text-white font-bold text-xs tracking-wider uppercase px-3 py-1.5 shadow-sm">
-              Sách nổi bật
-              <div className="absolute top-full left-0 w-0 h-0 border-t-[6px] border-l-[6px] border-t-[#3b3266] border-l-transparent"></div>
+          {featuredBooks[3] && (
+            <div className="bg-[#eff4fc] rounded-lg py-7 px-4 sm:py-8 sm:px-4 flex flex-col sm:flex-row relative border border-slate-200 mt-4">
+              <div className="absolute -top-4 -left-2 bg-[#594d95] text-white font-bold text-xs tracking-wider uppercase px-3 py-1.5 shadow-sm">
+                Sách nổi bật
+                <div className="absolute top-full left-0 w-0 h-0 border-t-[6px] border-l-[6px] border-t-[#3b3266] border-l-transparent"></div>
+              </div>
+              <div className="w-28 md:w-32 shrink-0 mx-auto sm:mx-0 mt-6 sm:mt-2 mb-5 sm:mb-0 sm:mr-6 text-center sm:text-left bg-white p-2 rounded-md shadow-sm">
+                <SafeImage src={featuredBooks[3].cover_url || "https://placehold.co/300x450"} alt={featuredBooks[3].title} className="w-full object-contain mix-blend-multiply aspect-2/3" />
+              </div>
+              <div className="flex-1 flex flex-col justify-center">
+                <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight line-clamp-2">{featuredBooks[3].title}</h3>
+                <p className="text-slate-600 mb-6 text-sm leading-relaxed line-clamp-3">
+                  {featuredBooks[3].description || "Khám phá cuốn sách thú vị đang thu hút sự chú ý của đông đảo bạn đọc."}
+                </p>
+                <Link to={`/book/${featuredBooks[3].book_id}`} className="bg-[#cc0f3a] hover:bg-[#a60b2e] text-white font-bold py-2.5 px-6 rounded-full transition-colors w-full sm:w-auto text-xs tracking-wide text-center inline-block">
+                  TÌM HIỂU THÊM
+                </Link>
+              </div>
             </div>
-            <div className="w-36 md:w-40 shrink-0 mx-auto sm:mx-0 mt-6 sm:mt-2 mb-5 sm:mb-0 sm:mr-6 text-center sm:text-left shadow-lg">
-              <img src={books[1]?.cover_url || "https://picsum.photos/seed/feat4/300/450"} alt="Featured 2" className="w-full object-cover rounded-sm aspect-2/3" />
-            </div>
-            <div className="flex-1 flex flex-col justify-center">
-              <h3 className="text-lg font-bold text-slate-900 mb-3 leading-tight">Câu Chuyện Hài Đen Tối</h3>
-              <p className="text-slate-600 mb-6 text-sm leading-relaxed">
-                Tám con người tham gia vào một chương trình thực tế kỳ lạ. Điều khởi đầu như một cơ hội nổi tiếng nhanh chóng trở nên đáng sợ.
-              </p>
-              <button className="bg-[#cc0f3a] hover:bg-[#a60b2e] text-white font-bold py-2.5 px-6 rounded-full transition-colors w-full sm:w-auto text-xs tracking-wide">
-                TÌM HIỂU THÊM
-              </button>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* --- DANH SÁCH CUỘN NGANG --- */}
       <section className="max-w-7xl mx-auto px-4 py-8">
         <h2 className="text-[25px] font-serif font-bold text-black mb-4">Sách Mới Nhất</h2>
         <div className="flex items-center justify-between mb-8">
@@ -180,6 +185,7 @@ export function Home() {
             <span className="font-medium text-slate-700 text-base">Modern Book</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link to="/new-books" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">Xem tất cả</Link>
             <div className="flex gap-2">
               <button onClick={() => scroll(newBooksScrollRef, 'left')} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600">
                 <ChevronLeft size={20} />
@@ -192,9 +198,9 @@ export function Home() {
         </div>
 
         <div ref={newBooksScrollRef} className="flex overflow-x-auto gap-4 md:gap-6 pb-6 snap-x no-scrollbar scroll-smooth">
-          {scrollingNewBooks.map((book, idx) => (
-            <Link key={`new-${book?.book_id}-${idx}`} to={`/book/${book?.book_id}`} className="min-w-[100px] md:min-w-[120px] shrink-0 snap-start bg-slate-100 rounded-md overflow-hidden aspect-2/3 shadow transition-transform hover:-translate-y-1">
-              <img src={book?.cover_url || "https://placehold.co/200x300"} alt={book?.title} className="w-full h-full object-cover" />
+          {newBooks.map((book, idx) => (
+            <Link key={`new-${book?.book_id}-${idx}`} to={`/book/${book?.book_id}`} className="w-[120px] md:w-[140px] shrink-0 snap-start bg-white border border-slate-100 rounded-md overflow-hidden aspect-2/3 hover:shadow-md transition-shadow p-2 flex items-center justify-center">
+              <SafeImage src={book?.cover_url || "https://placehold.co/200x300"} alt={book?.title} className="w-full h-full object-contain mix-blend-multiply hover:-translate-y-1 transition-transform" />
             </Link>
           ))}
         </div>
@@ -208,6 +214,7 @@ export function Home() {
             <span className="font-medium text-slate-700 text-base">Modern Book</span>
           </div>
           <div className="flex items-center gap-4">
+            <Link to="/best-sellers" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">Xem tất cả</Link>
             <div className="flex gap-2">
               <button onClick={() => scroll(bestSellersScrollRef, 'left')} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600">
                 <ChevronLeft size={20} />
@@ -220,15 +227,14 @@ export function Home() {
         </div>
 
         <div ref={bestSellersScrollRef} className="flex overflow-x-auto gap-4 md:gap-6 pb-6 snap-x no-scrollbar scroll-smooth">
-          {scrollingBestSellers.map((book, idx) => (
-            <Link key={`bs-${book?.book_id}-${idx}`} to={`/book/${book?.book_id}`} className="min-w-[100px] md:min-w-[120px] shrink-0 snap-start bg-slate-100 rounded-md overflow-hidden aspect-2/3 shadow transition-transform hover:-translate-y-1">
-              <img src={book?.cover_url || "https://placehold.co/200x300"} alt={book?.title} className="w-full h-full object-cover" />
+          {bestSellers.map((book, idx) => (
+            <Link key={`bs-${book?.book_id}-${idx}`} to={`/book/${book?.book_id}`} className="w-[120px] md:w-[140px] shrink-0 snap-start bg-white border border-slate-100 rounded-md overflow-hidden aspect-2/3 hover:shadow-md transition-shadow p-2 flex items-center justify-center">
+              <SafeImage src={book?.cover_url || "https://placehold.co/200x300"} alt={book?.title} className="w-full h-full object-contain mix-blend-multiply hover:-translate-y-1 transition-transform" />
             </Link>
           ))}
         </div>
       </section>
 
-      {/* --- DANH SÁCH SẢN PHẨM CHÍNH (Kết hợp từ code cũ của bạn) --- */}
       <section className="max-w-7xl mx-auto px-4 py-16 border-t border-slate-200 mt-8">
         <div className="flex justify-between items-end mb-8">
           <div>
@@ -245,14 +251,14 @@ export function Home() {
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-            {books.map((book) => (
-              <div key={`grid-${book.book_id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 group flex flex-col h-full hover:shadow-md transition-shadow">
-                <Link to={`/book/${book.book_id}`} className="block relative overflow-hidden rounded-lg mb-4 aspect-2/3">
-                  <img
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+              {featuredBooks.map((book) => (
+                <div key={`grid-${book.book_id}`} className="bg-white rounded-xl shadow-sm border border-slate-100 p-3 sm:p-4 group flex flex-col h-full hover:shadow-md transition-shadow">
+                  <Link to={`/book/${book.book_id}`} className="block relative overflow-hidden rounded-lg mb-3 aspect-2/3 bg-slate-50 items-center justify-center p-2">
+                    <SafeImage
                     src={book.cover_url || "https://placehold.co/300x450"}
                     alt={book.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
                   />
                 </Link>
 

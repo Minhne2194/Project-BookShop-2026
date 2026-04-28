@@ -10,7 +10,7 @@ interface CartContextType {
   cartItems: CartItem[];
   setToken: (token: string | null) => void;
   fetchCart: () => void;
-  handleAddToCart: (bookId: string) => Promise<void>;
+  handleAddToCart: (bookId: string, quantity?: number) => Promise<void>;
   cartCount: number;
 }
 
@@ -36,9 +36,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     fetchCart();
   }, [token]);
 
-  const handleAddToCart = async (bookId: string) => {
+  const handleAddToCart = async (bookId: string, quantity: number = 1) => {
     if (!token) {
-      alert("Vui lòng đăng nhập!"); // Bạn có thể xử lý logic show form login tốt hơn sau
+      alert("Vui lòng đăng nhập!");
       return;
     }
     const res = await fetch('http://localhost:3000/cart/add', {
@@ -47,7 +47,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`
       },
-      body: JSON.stringify({ bookId, quantity: 1 })
+      body: JSON.stringify({ bookId, quantity })
     });
     if (res.ok) fetchCart();
   };
