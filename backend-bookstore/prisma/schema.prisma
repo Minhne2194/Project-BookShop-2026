@@ -302,11 +302,25 @@ model Review {
   status           ReviewStatus @default(pending)
   created_at       DateTime  @default(now()) @db.Timestamptz
 
+  votes          ReviewVote[]
+
   @@index([book_id])
   @@index([user_id])
   @@index([status])
   @@unique([user_id, book_id, order_id])
   @@map("reviews")
+}
+
+model ReviewVote {
+  vote_id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  review_id        String    @db.Uuid
+  review           Review    @relation(fields: [review_id], references: [review_id], onDelete: Cascade)
+  user_id          String    @db.Uuid
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  @@unique([user_id, review_id])
+  @@index([review_id])
+  @@map("review_votes")
 }
 
 model UserBehaviorEvent {

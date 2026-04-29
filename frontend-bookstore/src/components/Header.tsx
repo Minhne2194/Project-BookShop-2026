@@ -1,43 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, User, Menu, X, BookOpen, LogOut, Globe } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const CATEGORIES = [
-  'Sách văn học',
-  'Sách kinh tế',
-  'Sách thiếu nhi',
-  'Sách kỹ năng sống',
-  'Nuôi dạy con',
-  'Sách Giáo Khoa - Giáo Trình',
-  'Sách Học Ngoại Ngữ',
-  'Sách Tham Khảo',
-  'Từ Điển',
-  'Sách Kiến Thức Tổng Hợp',
-  'Sách Khoa Học - Kỹ Thuật',
-  'Sách Lịch sử',
-  'Điện Ảnh - Nhạc - Họa',
-  'Truyện Tranh, Manga, Comic',
-  'Sách Tôn Giáo - Tâm Linh',
-  'Sách Văn Hóa - Địa Lý - Du Lịch',
-  'Sách Chính Trị - Pháp Lý',
-  'Sách Nông - Lâm - Ngư Nghiệp',
-  'Sách Công Nghệ Thông Tin',
-  'Sách Y Học',
-  'Tạp Chí - Catalogue',
-  'Sách Tâm lý - Giới tính',
-  'Sách Thường Thức - Gia Đình',
-  'Thể Dục - Thể Thao'
-];
+const API = 'http://localhost:3000';
+
+interface Category {
+  category_id: string;
+  parent_id: string | null;
+  name: string;
+  slug: string;
+  level: number;
+  sort_order: number;
+}
 
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const navigate = useNavigate();
 
   const { token, setToken, cartCount } = useCart();
+
+  useEffect(() => {
+    fetch(`${API}/categories`)
+      .then(res => res.json())
+      .then(data => {
+        const cats = Array.isArray(data) ? data : [];
+        setCategories(cats);
+      })
+      .catch(err => console.error('Lỗi tải danh mục:', err));
+  }, []);
+
+  const topLevelCategories = categories.filter(c => c.level === 2);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,13 +137,13 @@ export function Header() {
             Tất cả sách
           </Link>
           <div className="h-4 w-px bg-slate-300"></div>
-          {CATEGORIES.slice(0, 8).map(cat => (
+          {topLevelCategories.slice(0, 8).map(cat => (
             <Link
-              key={cat}
-              to={`/search?category=${encodeURIComponent(cat)}`}
+              key={cat.category_id}
+              to={`/search?category=${cat.category_id}`}
               className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors whitespace-nowrap"
             >
-              {cat}
+              {cat.name}
             </Link>
           ))}
         </div>
@@ -191,14 +188,14 @@ export function Header() {
               <Link to="/search" onClick={() => setIsMobileMenuOpen(false)} className="text-lg font-bold text-indigo-700 hover:text-indigo-800 transition-colors">
                 Tất cả sách
               </Link>
-              {CATEGORIES.slice(0, 8).map(cat => (
+              {topLevelCategories.map(cat => (
                 <Link
-                  key={cat}
-                  to={`/search?category=${encodeURIComponent(cat)}`}
+                  key={cat.category_id}
+                  to={`/search?category=${cat.category_id}`}
                   className="text-lg font-medium text-slate-700 hover:text-indigo-600 transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  {cat}
+                  {cat.name}
                 </Link>
               ))}
 

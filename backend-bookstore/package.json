@@ -8,7 +8,10 @@
   "scripts": {
     "build": "nest build",
     "catalog:fetch": "node scripts/crawler/fahasa-catalog.js",
-    "catalog:refresh": "npm run catalog:fetch && npx prisma db seed",
+    "catalog:fetch:quick": "set FAHASA_SOURCES=sach-trong-nuoc&& set FAHASA_PAGE_COUNT=1&& node scripts/crawler/fahasa-catalog.js",
+    "catalog:fetch:full": "set FAHASA_PAGE_COUNT=5&& node scripts/crawler/fahasa-catalog.js",
+    "catalog:seed": "npx prisma db seed",
+    "catalog:refresh": "npm run catalog:fetch & npx prisma db seed",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

@@ -72,7 +72,7 @@ export class ReviewsController {
 
   @UseGuards(AuthGuard)
   @Put(':id/helpful')
-  voteHelpful(@Param('id') id: string) {
-    return this.reviewsService.voteHelpful(id);
+  voteHelpful(@Param('id') id: string, @Req() req: any) {
+    return this.reviewsService.voteHelpful(id, req.user.sub);
   }
 }

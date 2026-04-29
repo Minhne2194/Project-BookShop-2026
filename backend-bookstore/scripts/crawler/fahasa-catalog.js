@@ -3,10 +3,36 @@ const path = require('path');
 const puppeteer = require('puppeteer');
 
 const OUTPUT_DIR = path.join(__dirname, 'output');
-const LIST_URL = 'https://www.fahasa.com/sach-trong-nuoc.html?p=';
 const START_PAGE = Number(process.env.FAHASA_START_PAGE || 1);
 const PAGE_COUNT = Number(process.env.FAHASA_PAGE_COUNT || 2);
 const DETAIL_CONCURRENCY = Number(process.env.FAHASA_DETAIL_CONCURRENCY || 4);
+const MERGE_MODE = process.env.FAHASA_MERGE !== '0'; // default: merge with existing data
+
+// All Fahasa category listing URLs to crawl
+// Override with env: FAHASA_SOURCES="van-hoc,kinh-te,thieu-nhi"
+const DEFAULT_SOURCES = [
+  { slug: 'sach-trong-nuoc', label: 'Sách trong nước (tổng hợp)' },
+  { slug: 'sach-trong-nuoc/van-hoc-trong-nuoc', label: 'Văn học' },
+  { slug: 'sach-trong-nuoc/kinh-te-chinh-tri-phap-ly', label: 'Kinh tế' },
+  { slug: 'sach-trong-nuoc/tam-ly-ky-nang-song', label: 'Tâm lý - Kỹ năng sống' },
+  { slug: 'sach-trong-nuoc/thieu-nhi', label: 'Thiếu nhi' },
+  { slug: 'sach-trong-nuoc/manga-comic', label: 'Manga - Comic' },
+  { slug: 'sach-trong-nuoc/sach-hoc-ngoai-ngu', label: 'Sách học ngoại ngữ' },
+  { slug: 'sach-trong-nuoc/giao-khoa-tham-khao', label: 'Giáo khoa - Tham khảo' },
+  { slug: 'sach-trong-nuoc/khoa-hoc-ky-thuat', label: 'Khoa học - Kỹ thuật' },
+  { slug: 'sach-trong-nuoc/van-hoa-nghe-thuat-du-lich', label: 'Văn hóa - Nghệ thuật' },
+];
+
+function getActiveSources() {
+  const envSources = process.env.FAHASA_SOURCES;
+  if (envSources) {
+    return envSources.split(',').map(s => s.trim()).filter(Boolean).map(slug => ({
+      slug,
+      label: slug,
+    }));
+  }
+  return DEFAULT_SOURCES;
+}
 
 function normalizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
@@ -88,10 +114,10 @@ async function openPage(browser) {
   return page;
 }
 
-async function fetchListingPage(browser, pageNumber) {
+async function fetchListingPage(browser, baseUrl, pageNumber) {
   const page = await openPage(browser);
   try {
-    const url = `${LIST_URL}${pageNumber}`;
+    const url = `${baseUrl}?p=${pageNumber}`;
     console.log(`[*] Crawling listing page ${pageNumber}: ${url}`);
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await closePopup(page);
@@ -261,21 +287,56 @@ function buildCategorySeed(books) {
   });
 }
 
+async function loadExistingData() {
+  const booksFile = path.join(OUTPUT_DIR, 'books_seed.json');
+  try {
+    const raw = await fs.readFile(booksFile, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function mergeBooks(existingBooks, newBooks) {
+  const map = new Map();
+  for (const book of existingBooks) {
+    map.set(book.isbn, book);
+  }
+  for (const book of newBooks) {
+    map.set(book.isbn, book); // new data overwrites old for same ISBN
+  }
+  return Array.from(map.values());
+}
+
 async function main() {
+  const sources = getActiveSources();
+  console.log(`[*] Crawling ${sources.length} source(s), ${PAGE_COUNT} page(s) each`);
+  console.log(`[*] Merge mode: ${MERGE_MODE ? 'ON (append to existing)' : 'OFF (overwrite)'}`);
+
   const browser = await puppeteer.launch({
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
   try {
-    const listings = [];
-    for (let pageNumber = START_PAGE; pageNumber < START_PAGE + PAGE_COUNT; pageNumber += 1) {
-      const books = await fetchListingPage(browser, pageNumber);
-      listings.push(...books);
+    const allListings = [];
+
+    for (const source of sources) {
+      const baseUrl = `https://www.fahasa.com/${source.slug}.html`;
+      console.log(`\n========== ${source.label} ==========`);
+
+      for (let pageNumber = START_PAGE; pageNumber < START_PAGE + PAGE_COUNT; pageNumber += 1) {
+        try {
+          const books = await fetchListingPage(browser, baseUrl, pageNumber);
+          allListings.push(...books);
+        } catch (err) {
+          console.warn(`[!] Failed page ${pageNumber} of ${source.label}:`, err.message);
+        }
+      }
     }
 
-    const dedupedListings = Array.from(new Map(listings.map((item) => [item.url, item])).values());
-    console.log(`[*] Found ${dedupedListings.length} book candidates`);
+    const dedupedListings = Array.from(new Map(allListings.map((item) => [item.url, item])).values());
+    console.log(`\n[*] Found ${dedupedListings.length} unique book candidates from all sources`);
 
     const books = await mapWithConcurrency(
       dedupedListings,
@@ -283,7 +344,19 @@ async function main() {
       (item, index) => fetchBookDetail(browser, item, index, dedupedListings.length),
     );
 
-    const catalog = books.filter((book) => book && book.title && book.isbn);
+    let catalog = books.filter((book) => book && book.title && book.isbn);
+    console.log(`[*] Successfully crawled ${catalog.length} books`);
+
+    // Merge with existing data if enabled
+    if (MERGE_MODE) {
+      const existing = await loadExistingData();
+      if (existing.length) {
+        console.log(`[*] Merging with ${existing.length} existing books...`);
+        catalog = mergeBooks(existing, catalog);
+        console.log(`[*] Total after merge: ${catalog.length} books`);
+      }
+    }
+
     const categories = buildCategorySeed(catalog);
 
     await fs.mkdir(OUTPUT_DIR, { recursive: true });
@@ -298,8 +371,8 @@ async function main() {
       'utf8',
     );
 
-    console.log(`[+] Wrote ${catalog.length} books to ${path.join(OUTPUT_DIR, 'books_seed.json')}`);
-    console.log(`[+] Wrote ${categories.length} categories to ${path.join(OUTPUT_DIR, 'categories_seed.json')}`);
+    console.log(`\n[+] Wrote ${catalog.length} books to books_seed.json`);
+    console.log(`[+] Wrote ${categories.length} categories to categories_seed.json`);
   } finally {
     await browser.close();
   }
