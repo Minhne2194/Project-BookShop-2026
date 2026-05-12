@@ -6,7 +6,15 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  create(@Body() body: { name: string; slug: string; level: number; parent_id?: string }) {
+  create(
+    @Body()
+    body: {
+      name: string;
+      slug: string;
+      level: number;
+      parent_id?: string;
+    },
+  ) {
     return this.categoriesService.create(body);
   }
 

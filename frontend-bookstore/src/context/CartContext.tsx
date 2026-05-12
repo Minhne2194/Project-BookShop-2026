@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, useContext, type ReactNode } from 'react';
+import { useToast } from '../components/Toast';
 
 interface CartItem {
   bookId: string;
@@ -19,6 +20,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const { toast } = useToast();
 
   const fetchCart = () => {
     if (token) {
@@ -38,7 +40,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const handleAddToCart = async (bookId: string, quantity: number = 1) => {
     if (!token) {
-      alert("Vui lòng đăng nhập!");
+      toast("Vui lòng đăng nhập!", 'info');
       return;
     }
     const res = await fetch('http://localhost:3000/cart/add', {

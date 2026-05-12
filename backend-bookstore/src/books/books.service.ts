@@ -5,7 +5,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export class BooksService {
   constructor(private prisma: PrismaService) {}
 
-
   async create(data: any) {
     const { author_ids, category_ids, is_primary_category, ...bookData } = data;
 
@@ -28,7 +27,6 @@ export class BooksService {
       },
     });
 
-
     if (author_ids?.length) {
       await this.prisma.bookAuthor.createMany({
         data: author_ids.map((id: string) => ({
@@ -39,7 +37,6 @@ export class BooksService {
         skipDuplicates: true,
       });
     }
-
 
     if (category_ids?.length) {
       await this.prisma.bookCategory.createMany({
@@ -54,7 +51,6 @@ export class BooksService {
 
     return this.findOne(book.book_id);
   }
-
 
   async findAll(
     page: number = 1,
@@ -110,51 +106,77 @@ export class BooksService {
     const [total, books] = await Promise.all([
       this.prisma.book.count({ where }),
       this.prisma.book.findMany({
-        where, skip, take: limit, orderBy: orderByClause,
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByClause,
         include: {
-          book_categories: { include: { category: { include: { parent: true } } } },
+          book_categories: {
+            include: { category: { include: { parent: true } } },
+          },
           book_authors: { include: { author: true } },
           publisher: true,
         },
       }),
     ]);
 
-    const data = books.map(book => this.formatBook(book));
-    return { data, meta: { total, page, limit, totalPages: Math.ceil(total / limit) } };
+    const data = books.map((book) => this.formatBook(book));
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
-
 
   async search(q: string) {
     if (!q?.trim()) return { data: [], meta: { total: 0 } };
+    const normalizedQuery = q.trim().replace(/\s+/g, ' ');
+    const terms = normalizedQuery
+      .split(' ')
+      .map((term) => term.trim())
+      .filter(Boolean)
+      .slice(0, 8);
 
-    const keyword = `%${q.trim()}%`;
     const books = await this.prisma.book.findMany({
       where: {
         is_active: true,
-        OR: [
-          { title: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-          { book_authors: { some: { author: { name: { contains: q, mode: 'insensitive' } } } } },
-        ],
+        AND: terms.map((term) => ({
+          OR: [
+            { title: { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+            {
+              book_authors: {
+                some: {
+                  author: { name: { contains: term, mode: 'insensitive' } },
+                },
+              },
+            },
+          ],
+        })),
       },
       take: 50,
       include: {
-        book_categories: { include: { category: { include: { parent: true } } } },
+        book_categories: {
+          include: { category: { include: { parent: true } } },
+        },
         book_authors: { include: { author: true } },
         publisher: true,
       },
       orderBy: { sold_count: 'desc' },
     });
 
-    return { data: books.map(b => this.formatBook(b)), meta: { total: books.length } };
+    return {
+      data: books.map((b) => this.formatBook(b)),
+      meta: { total: books.length },
+    };
   }
-
 
   async findBySlug(slug: string) {
     const book = await this.prisma.book.findUnique({
       where: { slug },
       include: {
-        book_categories: { include: { category: { include: { parent: true } } } },
+        book_categories: {
+          include: { category: { include: { parent: true } } },
+        },
         book_authors: { include: { author: true } },
         publisher: true,
       },
@@ -162,13 +184,14 @@ export class BooksService {
     if (!book) return null;
     return this.formatBook(book);
   }
-
 
   async findOne(id: string) {
     const book = await this.prisma.book.findUnique({
       where: { book_id: id },
       include: {
-        book_categories: { include: { category: { include: { parent: true } } } },
+        book_categories: {
+          include: { category: { include: { parent: true } } },
+        },
         book_authors: { include: { author: true } },
         publisher: true,
       },
@@ -176,7 +199,6 @@ export class BooksService {
     if (!book) return null;
     return this.formatBook(book);
   }
-
 
   async update(id: string, data: any) {
     const { author_ids, category_ids, ...bookData } = data;
@@ -199,12 +221,15 @@ export class BooksService {
       },
     });
 
-
     if (author_ids !== undefined) {
       await this.prisma.bookAuthor.deleteMany({ where: { book_id: id } });
       if (author_ids.length) {
         await this.prisma.bookAuthor.createMany({
-          data: author_ids.map((aid: string) => ({ book_id: id, author_id: aid, role: 'author' })),
+          data: author_ids.map((aid: string) => ({
+            book_id: id,
+            author_id: aid,
+            role: 'author',
+          })),
         });
       }
     }
@@ -213,7 +238,9 @@ export class BooksService {
       if (category_ids.length) {
         await this.prisma.bookCategory.createMany({
           data: category_ids.map((cid: string, idx: number) => ({
-            book_id: id, category_id: cid, is_primary: idx === 0,
+            book_id: id,
+            category_id: cid,
+            is_primary: idx === 0,
           })),
         });
       }
@@ -222,29 +249,32 @@ export class BooksService {
     return this.findOne(id);
   }
 
-
   async remove(id: string) {
     try {
       await this.prisma.book.delete({ where: { book_id: id } });
       return { message: 'Xóa sách thành công!' };
     } catch (error: any) {
       if (error.code === 'P2003') {
-        throw new BadRequestException('Không thể xóa! Cuốn sách này đã nằm trong hóa đơn của khách hàng.');
+        throw new BadRequestException(
+          'Không thể xóa! Cuốn sách này đã nằm trong hóa đơn của khách hàng.',
+        );
       }
       throw new BadRequestException('Có lỗi xảy ra khi xóa sách.');
     }
   }
 
-
   private formatBook(book: any) {
     const { book_categories, book_authors, publisher, ...rest } = book;
     const primaryCat = book_categories?.[0]?.category;
-    const rootCategory = primaryCat?.parent?.name || primaryCat?.name || 'Tất cả';
+    const rootCategory =
+      primaryCat?.parent?.name || primaryCat?.name || 'Tất cả';
     return {
       ...rest,
       category: rootCategory,
       categories: book_categories?.map((bc: any) => bc.category) ?? [],
-      author: book_authors?.map((ba: any) => ba.author.name).join(', ') || 'Khuyết danh',
+      author:
+        book_authors?.map((ba: any) => ba.author.name).join(', ') ||
+        'Khuyết danh',
       authors: book_authors?.map((ba: any) => ba.author) ?? [],
       publisher: publisher?.name || 'Đang cập nhật',
       publisher_id: publisher?.publisher_id,

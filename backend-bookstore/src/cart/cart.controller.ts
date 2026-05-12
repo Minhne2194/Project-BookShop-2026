@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Delete, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { CartService } from './cart.service';
 import { AuthGuard } from '../auth/auth.guard'; // Import chú bảo vệ
 
@@ -16,9 +26,22 @@ export class CartController {
 
   // Thêm sách vào giỏ hàng
   @Post('add')
-  addToCart(@Req() req: any, @Body() body: { bookId: string; quantity: number }) {
+  addToCart(
+    @Req() req: any,
+    @Body() body: { bookId: string; quantity: number },
+  ) {
     const userId = req.user.sub;
     return this.cartService.addToCart(userId, body.bookId, body.quantity);
+  }
+
+  // Cập nhật số lượng sách trong giỏ hàng
+  @Put('update')
+  updateCartItem(
+    @Req() req: any,
+    @Body() body: { bookId: string; quantity: number },
+  ) {
+    const userId = req.user.sub;
+    return this.cartService.updateCartItem(userId, body.bookId, body.quantity);
   }
 
   // Xóa 1 cuốn sách khỏi giỏ hàng
@@ -26,5 +49,11 @@ export class CartController {
   removeFromCart(@Req() req: any, @Param('bookId') bookId: string) {
     const userId = req.user.sub;
     return this.cartService.removeFromCart(userId, bookId);
+  }
+
+  // Kiểm tra mã khuyến mãi (free ship)
+  @Post('validate-promo')
+  validatePromo(@Body() body: { code: string }) {
+    return this.cartService.validatePromo(body.code);
   }
 }

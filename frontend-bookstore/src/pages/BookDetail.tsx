@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../components/Toast';
 import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
@@ -70,6 +71,7 @@ export function BookDetail() {
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
     const { token, fetchCart } = useCart();
+    const { toast } = useToast();
 
 
     useEffect(() => {
@@ -100,19 +102,19 @@ export function BookDetail() {
 
     const handleAddToCart = async () => {
         if (!book) return;
-        if (!token) { alert('Vui lòng đăng nhập để thêm vào giỏ hàng!'); return; }
+        if (!token) { toast('Vui lòng đăng nhập để thêm vào giỏ hàng!', 'info'); return; }
         const res = await fetch(`${API}/cart/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ bookId: book.book_id, quantity }),
         });
-        if (res.ok) { fetchCart(); alert(`Đã thêm ${quantity} cuốn "${book.title}" vào giỏ!`); }
-        else alert('Có lỗi xảy ra khi thêm vào giỏ hàng.');
+        if (res.ok) { fetchCart(); toast(`Đã thêm ${quantity} cuốn "${book.title}" vào giỏ!`, 'success'); }
+        else toast('Có lỗi xảy ra khi thêm vào giỏ hàng.', 'error');
     };
 
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) { alert('Vui lòng đăng nhập để đánh giá!'); return; }
+        if (!token) { toast('Vui lòng đăng nhập để đánh giá!', 'info'); return; }
         if (!book) return;
         setSubmitting(true);
         try {
@@ -128,7 +130,7 @@ export function BookDetail() {
                 setTimeout(() => setSubmitSuccess(false), 4000);
             } else {
                 const err = await res.json();
-                alert(err.message || 'Không thể gửi đánh giá!');
+                toast(err.message || 'Không thể gửi đánh giá!', 'error');
             }
         } finally {
             setSubmitting(false);

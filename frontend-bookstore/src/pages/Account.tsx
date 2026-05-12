@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { User, ShoppingBag, MapPin, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../components/Toast';
 import { getOrderStatusMeta } from '../utils/orderStatus';
 
 interface OrderItem {
@@ -34,6 +35,7 @@ type MessageState = {
 
 export function Account() {
   const { token, setToken } = useCart();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('profile');
@@ -128,7 +130,7 @@ export function Account() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        alert(`Lỗi: ${errorData?.message || 'Không thể xóa tài khoản.'}`);
+        toast(`Lỗi: ${errorData?.message || 'Không thể xóa tài khoản.'}`, 'error');
         return;
       }
 
@@ -137,7 +139,7 @@ export function Account() {
       navigate('/');
     } catch (deleteError) {
       console.error(deleteError);
-      alert('Có lỗi xảy ra khi xóa tài khoản.');
+      toast('Có lỗi xảy ra khi xóa tài khoản.', 'error');
     }
   };
 

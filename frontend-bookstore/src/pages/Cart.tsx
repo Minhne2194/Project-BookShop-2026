@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ArrowRight } from 'lucide-react';
+import { Trash2, ArrowRight, Tag, X, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
+import { useToast } from '../components/Toast';
 
 interface Book {
     book_id: string;
@@ -15,9 +16,22 @@ interface Book {
 
 export function Cart() {
     const { token, cartItems, fetchCart } = useCart();
+    const { toast } = useToast();
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const navigate = useNavigate();
+
+    const [promoCode, setPromoCode] = useState('');
+    const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+    const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+
+    const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!confirmRemoveId) return;
+        const timer = setTimeout(() => setConfirmRemoveId(null), 3000);
+        return () => clearTimeout(timer);
+    }, [confirmRemoveId]);
 
     useEffect(() => {
         if (cartItems.length === 0) {
@@ -49,14 +63,19 @@ export function Cart() {
         }).filter(item => item.title);
     }, [cartItems, books]);
 
-    const totalPrice = cartDetails.reduce((sum, item) => {
+    const shippingFee = 30000;
+    const subtotal = cartDetails.reduce((sum, item) => {
         return sum + (Number(item.price || 0) * item.quantity);
     }, 0);
 
 
     const handleUpdateQuantity = async (bookId: string, newQuantity: number) => {
-        if (newQuantity < 1) return;
         if (!token) return;
+
+        if (newQuantity <= 0) {
+            setConfirmRemoveId(bookId);
+            return;
+        }
 
         try {
             const res = await fetch('http://localhost:3000/cart/update', {
@@ -75,22 +94,61 @@ export function Cart() {
 
     const handleRemove = async (bookId: string) => {
         if (!token) return;
-        if (!window.confirm("Bạn có chắc muốn xóa cuốn sách này khỏi giỏ hàng?")) return;
 
+        if (confirmRemoveId !== bookId) {
+            setConfirmRemoveId(bookId);
+            return;
+        }
+
+        setConfirmRemoveId(null);
         try {
-            const res = await fetch('http://localhost:3000/cart/remove', {
+            const res = await fetch(`http://localhost:3000/cart/remove/${bookId}`, {
                 method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ bookId })
+                headers: { Authorization: `Bearer ${token}` }
             });
-            if (res.ok) fetchCart();
+            if (res.ok) {
+                const item = cartDetails.find(d => d.bookId === bookId);
+                toast(`Đã xóa "${item?.title || 'sản phẩm'}" khỏi giỏ hàng`, 'info');
+                fetchCart();
+            }
         } catch (err) {
             console.error("Lỗi xóa sản phẩm", err);
         }
     };
+
+    const handleApplyPromo = async () => {
+        if (!promoCode.trim() || !token) return;
+        setIsValidatingPromo(true);
+        try {
+            const res = await fetch('http://localhost:3000/cart/validate-promo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ code: promoCode }),
+            });
+            const data = await res.json();
+            if (data.valid) {
+                setAppliedPromo(promoCode.trim().toUpperCase());
+                toast(`${data.description} — đã áp dụng mã ${promoCode.trim().toUpperCase()}`, 'success');
+            } else {
+                toast(data.message || 'Mã không hợp lệ.', 'error');
+            }
+        } catch {
+            toast('Không thể kiểm tra mã. Vui lòng thử lại.', 'error');
+        } finally {
+            setIsValidatingPromo(false);
+        }
+    };
+
+    const handleRemovePromo = () => {
+        setAppliedPromo(null);
+        setPromoCode('');
+    };
+
+    const effectiveShippingFee = appliedPromo ? 0 : shippingFee;
+    const effectiveTotal = subtotal + effectiveShippingFee;
 
     const formatPrice = (price: string | number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
@@ -150,9 +208,18 @@ export function Cart() {
                                 </div>
 
                                 <div className="flex flex-col items-end gap-4">
-                                    <button onClick={() => handleRemove(item.bookId)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
+                                    {confirmRemoveId === item.bookId ? (
+                                        <button
+                                            onClick={() => handleRemove(item.bookId)}
+                                            className="px-3 py-1.5 bg-rose-500 text-white text-xs font-bold rounded-full hover:bg-rose-600 transition-colors animate-pulse"
+                                        >
+                                            Xóa?
+                                        </button>
+                                    ) : (
+                                        <button onClick={() => handleRemove(item.bookId)} className="p-2 text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    )}
                                     <div className="flex items-center border border-slate-200 rounded-full bg-slate-50">
                                         <button onClick={() => handleUpdateQuantity(item.bookId, item.quantity - 1)} className="w-8 h-8 flex items-center justify-center text-slate-600 hover:text-indigo-600 font-bold">-</button>
                                         <span className="w-8 text-center font-bold text-slate-900 text-sm">{item.quantity}</span>
@@ -170,21 +237,64 @@ export function Cart() {
                             <div className="space-y-3 mb-6">
                                 <div className="flex justify-between text-slate-600">
                                     <span>Tạm tính</span>
-                                    <span>{formatPrice(totalPrice)}</span>
+                                    <span>{formatPrice(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-slate-600">
                                     <span>Phí vận chuyển</span>
-                                    <span className="text-emerald-600 font-medium">Miễn phí</span>
+                                    {appliedPromo ? (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-400 line-through text-sm">{formatPrice(shippingFee)}</span>
+                                            <span className="text-emerald-600 font-medium">{formatPrice(0)}</span>
+                                        </div>
+                                    ) : (
+                                        <span>{formatPrice(shippingFee)}</span>
+                                    )}
                                 </div>
                             </div>
 
-                            <div className="flex justify-between items-end mb-8 pt-4 border-t border-slate-100">
+                            {appliedPromo && (
+                                <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    <span>Đã áp dụng <strong>{appliedPromo}</strong> — miễn phí vận chuyển</span>
+                                    <button onClick={handleRemovePromo} className="ml-auto p-0.5 hover:bg-emerald-200 rounded transition-colors">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-end mb-4 pt-4 border-t border-slate-100">
                                 <span className="font-bold text-slate-900">Tổng thanh toán</span>
-                                <span className="text-2xl font-bold text-indigo-600">{formatPrice(totalPrice)}</span>
+                                <span className="text-2xl font-bold text-indigo-600">{formatPrice(effectiveTotal)}</span>
+                            </div>
+
+                            <div className="mb-6">
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                        <input
+                                            type="text"
+                                            value={promoCode}
+                                            onChange={(e) => setPromoCode(e.target.value)}
+                                            onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
+                                            placeholder="Mã khuyến mãi"
+                                            disabled={!!appliedPromo}
+                                            className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                                        />
+                                    </div>
+                                    {!appliedPromo ? (
+                                        <button
+                                            onClick={handleApplyPromo}
+                                            disabled={isValidatingPromo || !promoCode.trim()}
+                                            className="px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            {isValidatingPromo ? '...' : 'Áp dụng'}
+                                        </button>
+                                    ) : null}
+                                </div>
                             </div>
 
                             <button
-                                onClick={() => navigate('/checkout')}
+                                onClick={() => navigate(appliedPromo ? `/checkout?promo=${appliedPromo}` : '/checkout')}
                                 className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 Tiến hành thanh toán <ArrowRight className="w-5 h-5" />

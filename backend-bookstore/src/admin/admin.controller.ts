@@ -1,5 +1,13 @@
 import {
-  Controller, Get, Post, Put, Body, Param, Query, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Delete,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -30,11 +38,23 @@ export class AdminController {
 
   // ——— QUẢN LÝ USER ———
   @Get('users')
-  getAllUsers(@Query('page') page?: string, @Query('limit') limit?: string) {
+  getAllUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('role') role?: string,
+  ) {
     return this.adminService.getAllUsers(
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 20,
+      { search, status, role },
     );
+  }
+
+  @Get('users/:id/orders')
+  getUserOrders(@Param('id') id: string) {
+    return this.adminService.getUserOrders(id);
   }
 
   @Put('users/:id/status')
@@ -55,7 +75,15 @@ export class AdminController {
   }
 
   @Post('authors')
-  createAuthor(@Body() body: { name: string; slug: string; bio?: string; avatar_url?: string }) {
+  createAuthor(
+    @Body()
+    body: {
+      name: string;
+      slug: string;
+      bio?: string;
+      avatar_url?: string;
+    },
+  ) {
     return this.adminService.createAuthor(body);
   }
 
@@ -66,7 +94,10 @@ export class AdminController {
 
   // ——— QUẢN LÝ NHÀ XUẤT BẢN ———
   @Get('publishers')
-  getAllPublishers(@Query('page') page?: string, @Query('limit') limit?: string) {
+  getAllPublishers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.adminService.getAllPublishers(
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 50,
@@ -74,7 +105,9 @@ export class AdminController {
   }
 
   @Post('publishers')
-  createPublisher(@Body() body: { name: string; slug: string; website?: string }) {
+  createPublisher(
+    @Body() body: { name: string; slug: string; website?: string },
+  ) {
     return this.adminService.createPublisher(body);
   }
 
@@ -90,7 +123,26 @@ export class AdminController {
   }
 
   @Post('categories')
-  createCategory(@Body() body: { name: string; slug: string; level: number; parent_id?: string; sort_order?: number }) {
+  createCategory(
+    @Body()
+    body: {
+      name: string;
+      slug: string;
+      level: number;
+      parent_id?: string;
+      sort_order?: number;
+    },
+  ) {
     return this.adminService.createCategory(body);
+  }
+
+  @Put('categories/:id')
+  updateCategory(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateCategory(id, body);
+  }
+
+  @Delete('categories/:id')
+  deleteCategory(@Param('id') id: string) {
+    return this.adminService.deleteCategory(id);
   }
 }

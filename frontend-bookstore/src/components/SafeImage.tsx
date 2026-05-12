@@ -12,11 +12,19 @@ export function SafeImage({
     className,
     ...props
 }: SafeImageProps) {
-    const [imgSrc, setImgSrc] = useState<string>(src || fallbackSrc);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    
+    const getFormattedSrc = (source?: string | null) => {
+        if (!source) return fallbackSrc;
+        if (source.startsWith('/')) return `${API_URL}${source}`;
+        return source;
+    };
+
+    const [imgSrc, setImgSrc] = useState<string>(getFormattedSrc(src));
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
-        setImgSrc(src || fallbackSrc);
+        setImgSrc(getFormattedSrc(src));
         setHasError(false);
     }, [src, fallbackSrc]);
 

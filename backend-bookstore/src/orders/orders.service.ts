@@ -37,10 +37,27 @@ export class OrdersService {
     return normalizedStatus;
   }
 
-  async checkout(userId: string, body: { payment_method: any; shipping_address: any }) {
+  private readonly freeShipCodes = new Set([
+    'FREESHIP',
+    'MIENPHI',
+    ...(process.env.FREE_SHIP_CODES || '')
+      .split(',')
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean),
+  ]);
+
+  private isFreeShipPromo(code?: string): boolean {
+    return !!(code && this.freeShipCodes.has(code.trim().toUpperCase()));
+  }
+
+  async checkout(
+    userId: string,
+    body: { payment_method: any; shipping_address: any; promo_code?: string },
+  ) {
     const cartData = await this.redis.get(`cart:${userId}`);
-    if (!cartData) throw new BadRequestException('Giỏ hàng của bạn đang trống!');
-    
+    if (!cartData)
+      throw new BadRequestException('Giỏ hàng của bạn đang trống!');
+
     const cart = JSON.parse(cartData);
     if (!cart.items || cart.items.length === 0) {
       throw new BadRequestException('Giỏ hàng của bạn đang trống!');
@@ -50,11 +67,16 @@ export class OrdersService {
     const orderItemsData: any[] = [];
 
     for (const item of cart.items) {
-      const book = await this.prisma.book.findUnique({ where: { book_id: item.bookId } });
-      
-      if (!book) throw new BadRequestException(`Sách ID ${item.bookId} không tồn tại!`);
+      const book = await this.prisma.book.findUnique({
+        where: { book_id: item.bookId },
+      });
+
+      if (!book)
+        throw new BadRequestException(`Sách ID ${item.bookId} không tồn tại!`);
       if (book.stock_qty < item.quantity) {
-        throw new BadRequestException(`Sách "${book.title}" không đủ số lượng trong kho!`);
+        throw new BadRequestException(
+          `Sách "${book.title}" không đủ số lượng trong kho!`,
+        );
       }
 
       subtotal += Number(book.price) * item.quantity;
@@ -66,19 +88,31 @@ export class OrdersService {
       });
     }
 
-    const shippingFee = 30000;
+    const baseShippingFee = Number(process.env.SHIPPING_FEE) || 30000;
+    const appliedPromo = this.isFreeShipPromo(body.promo_code);
+    const shippingFee = appliedPromo ? 0 : baseShippingFee;
+    const discountAmount = appliedPromo ? baseShippingFee : 0;
     const totalAmount = subtotal + shippingFee;
     const paymentMethod = this.normalizePaymentMethod(body.payment_method);
 
+    // For online payment methods (MoMo, VNPay), set initial status to pending
+    // The order will be confirmed after payment callback
+    const isOnlinePayment =
+      paymentMethod === 'momo' ||
+      paymentMethod === 'vnpay' ||
+      paymentMethod === 'payos' ||
+      paymentMethod === 'bank_transfer';
+    const initialStatus = isOnlinePayment ? 'pending' : 'pending';
+
     const order = await this.prisma.$transaction(async (tx) => {
-      
       const newOrder = await tx.order.create({
         data: {
           order_code: `ORD-${Date.now()}`,
           user_id: userId,
-          status: 'pending',
+          status: initialStatus,
           subtotal: subtotal,
           shipping_fee: shippingFee,
+          discount_amount: discountAmount,
           total_amount: totalAmount,
           payment_method: paymentMethod,
           payment_status: 'pending',
@@ -90,6 +124,8 @@ export class OrdersService {
         include: { items: true },
       });
 
+      // For COD, immediately decrement stock
+      // For online payment, stock is already decremented and will be restored if payment fails
       for (const item of cart.items) {
         await tx.book.update({
           where: { book_id: item.bookId },
@@ -106,16 +142,43 @@ export class OrdersService {
     await this.redis.del(`cart:${userId}`);
 
     return {
-      message: 'Đặt hàng thành công!',
+      message: isOnlinePayment
+        ? 'Đơn hàng đã được tạo. Vui lòng hoàn tất thanh toán.'
+        : 'Đặt hàng thành công!',
       order: order,
+      requiresPayment: isOnlinePayment,
     };
+  }
+
+  /**
+   * Get order by ID for payment processing
+   */
+  async getOrderForPayment(orderId: string, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { order_id: orderId, user_id: userId },
+      include: { items: { include: { book: true } } },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Đơn hàng không tồn tại!');
+    }
+
+    if (order.payment_status === 'paid') {
+      throw new BadRequestException('Đơn hàng đã được thanh toán!');
+    }
+
+    return order;
   }
 
   async getMyOrders(userId: string) {
     return this.prisma.order.findMany({
       where: { user_id: userId },
       orderBy: { created_at: 'desc' },
-      include: { items: { include: { book: { select: { title: true, cover_url: true } } } } }
+      include: {
+        items: {
+          include: { book: { select: { title: true, cover_url: true } } },
+        },
+      },
     });
   }
   async getAllOrdersForAdmin() {
@@ -123,8 +186,8 @@ export class OrdersService {
       orderBy: { created_at: 'desc' },
       include: {
         user: { select: { full_name: true, email: true } },
-        items: { include: { book: { select: { title: true } } } }
-      }
+        items: { include: { book: { select: { title: true } } } },
+      },
     });
   }
 
@@ -133,7 +196,7 @@ export class OrdersService {
 
     return this.prisma.order.update({
       where: { order_id: orderId },
-      data: { status: normalizedStatus }
+      data: { status: normalizedStatus },
     });
   }
 }

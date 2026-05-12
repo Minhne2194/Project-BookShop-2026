@@ -7,6 +7,7 @@ import {
     DollarSign,
     Edit,
     Globe,
+    Layers,
     Lock,
     LogOut,
     Package,
@@ -111,6 +112,22 @@ type PublisherFormState = {
     website: string;
 };
 
+type Category = {
+    category_id: string;
+    name: string;
+    slug: string;
+    sort_order: number;
+    parent_id?: string;
+    level: number;
+    _count?: { book_categories: number };
+};
+
+type CategoryFormState = {
+    name: string;
+    slug: string;
+    sort_order: number | string;
+};
+
 const EMPTY_BOOK_FORM: BookFormState = {
     title: '',
     slug: '',
@@ -133,6 +150,12 @@ const EMPTY_PUBLISHER_FORM: PublisherFormState = {
     website: '',
 };
 
+const EMPTY_CATEGORY_FORM: CategoryFormState = {
+    name: '',
+    slug: '',
+    sort_order: 0,
+};
+
 export function Admin() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -149,12 +172,25 @@ export function Admin() {
     const [pendingReviews, setPendingReviews] = useState<PendingReview[]>([]);
     const [authors, setAuthors] = useState<Author[]>([]);
     const [publishers, setPublishers] = useState<Publisher[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [revenueData, setRevenueData] = useState<{ month: string; revenue: number; orders: number }[]>([]);
 
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [authorsLoading, setAuthorsLoading] = useState(false);
     const [publishersLoading, setPublishersLoading] = useState(false);
+    const [categoriesLoading, setCategoriesLoading] = useState(false);
     const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
     const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+
+    // User search / filter
+    const [userSearch, setUserSearch] = useState('');
+    const [userStatusFilter, setUserStatusFilter] = useState('');
+    const [userRoleFilter, setUserRoleFilter] = useState('');
+
+    // User orders modal
+    const [selectedUserForOrders, setSelectedUserForOrders] = useState<AdminUser | null>(null);
+    const [userOrders, setUserOrders] = useState<any[]>([]);
+    const [userOrdersLoading, setUserOrdersLoading] = useState(false);
 
     const [showBookModal, setShowBookModal] = useState(false);
     const [editingBookId, setEditingBookId] = useState<string | null>(null);
@@ -165,6 +201,10 @@ export function Admin() {
     const [showPublisherModal, setShowPublisherModal] = useState(false);
     const [editingPublisherId, setEditingPublisherId] = useState<string | null>(null);
     const [publisherForm, setPublisherForm] = useState<PublisherFormState>(EMPTY_PUBLISHER_FORM);
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+    const [categoryForm, setCategoryForm] = useState<CategoryFormState>(EMPTY_CATEGORY_FORM);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
 
     useEffect(() => {
         const auth = localStorage.getItem('isAdminAuth');
@@ -252,6 +292,23 @@ export function Admin() {
         }
     };
 
+    const fetchCategories = async () => {
+        const token = getToken();
+        if (!token) return;
+        setCategoriesLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/admin/categories`, { headers: { Authorization: `Bearer ${token}` } });
+            if (res.ok) {
+                const data = await res.json();
+                setCategories(data.data || data || []);
+            }
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setCategoriesLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!isAuthenticated) return;
 
@@ -262,10 +319,11 @@ export function Admin() {
                 if (!token) return;
                 await fetchBooksList();
                 const headers = { Authorization: `Bearer ${token}` };
-                const [ordersRes, usersRes, statsRes] = await Promise.all([
+                const [ordersRes, usersRes, statsRes, revenueRes] = await Promise.all([
                     fetch(`${API_URL}/orders/all`, { headers }),
-                    fetch(`${API_URL}/admin/users`, { headers }),
+                    fetch(`${API_URL}/admin/users?limit=200`, { headers }),
                     fetch(`${API_URL}/admin/stats`, { headers }),
+                    fetch(`${API_URL}/admin/stats/revenue`, { headers }),
                 ]);
 
                 if (ordersRes.ok) setOrders(await ordersRes.json());
@@ -278,11 +336,15 @@ export function Admin() {
 
                 if (statsRes.ok) setStats(await statsRes.json());
                 else setStats(null);
+
+                if (revenueRes.ok) setRevenueData(await revenueRes.json());
+                else setRevenueData([]);
             } catch (fetchError) {
                 console.error('Lỗi tải dữ liệu Admin:', fetchError);
                 setOrders([]);
                 setUsers([]);
                 setStats(null);
+                setRevenueData([]);
             } finally {
                 setLoading(false);
             }
@@ -296,7 +358,38 @@ export function Admin() {
         if (activeTab === 'reviews') fetchPendingReviews();
         if (activeTab === 'authors') fetchAuthors();
         if (activeTab === 'publishers') fetchPublishers();
+        if (activeTab === 'categories') fetchCategories();
     }, [activeTab, isAuthenticated]);
+
+    const openUserOrdersModal = async (user: AdminUser) => {
+        setSelectedUserForOrders(user);
+        setUserOrders([]);
+        setUserOrdersLoading(true);
+        const token = getToken();
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_URL}/admin/users/${user.user_id}/orders`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setUserOrders(data.data || []);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setUserOrdersLoading(false);
+        }
+    };
+
+    const filteredUsers = users.filter((u) => {
+        const matchSearch = !userSearch ||
+            u.email.toLowerCase().includes(userSearch.toLowerCase()) ||
+            (u.full_name || '').toLowerCase().includes(userSearch.toLowerCase());
+        const matchStatus = !userStatusFilter || u.status === userStatusFilter;
+        const matchRole = !userRoleFilter || u.role === userRoleFilter;
+        return matchSearch && matchStatus && matchRole;
+    });
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -428,6 +521,40 @@ export function Admin() {
         setShowBookModal(true);
     };
 
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const token = getToken();
+        if (!token) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setIsUploadingImage(true);
+        try {
+            const res = await fetch(`${API_URL}/upload`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setBookForm((prev) => ({ ...prev, cover_url: data.url }));
+            } else {
+                const errorData = await res.json();
+                alert(errorData.message || 'Lỗi upload ảnh');
+            }
+        } catch (error) {
+            console.error('Lỗi upload:', error);
+            alert('Đã xảy ra lỗi khi upload ảnh');
+        } finally {
+            setIsUploadingImage(false);
+        }
+    };
+
     const handleBookSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const token = getToken();
@@ -549,6 +676,62 @@ export function Admin() {
         }
     };
 
+    const openAddCategoryModal = () => {
+        setEditingCategoryId(null);
+        setCategoryForm(EMPTY_CATEGORY_FORM);
+        setShowCategoryModal(true);
+    };
+
+    const openEditCategoryModal = (category: Category) => {
+        setEditingCategoryId(category.category_id);
+        setCategoryForm({
+            name: category.name || '',
+            slug: category.slug || '',
+            sort_order: category.sort_order || 0,
+        });
+        setShowCategoryModal(true);
+    };
+
+    const handleCategorySubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const token = getToken();
+        if (!token) return;
+        const method = editingCategoryId ? 'PUT' : 'POST';
+        const endpoint = editingCategoryId ? `${API_URL}/admin/categories/${editingCategoryId}` : `${API_URL}/admin/categories`;
+        try {
+            const res = await fetch(endpoint, {
+                method,
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                    name: categoryForm.name.trim(),
+                    slug: categoryForm.slug.trim(),
+                    sort_order: Number(categoryForm.sort_order),
+                    level: 1,
+                }),
+            });
+            if (!res.ok) return;
+            setShowCategoryModal(false);
+            await fetchCategories();
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleDeleteCategory = async (categoryId: string) => {
+        const token = getToken();
+        if (!token) return;
+        try {
+            const res = await fetch(`${API_URL}/admin/categories/${categoryId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) return;
+            await fetchCategories();
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     if (!isAuthenticated) {
         return (
             <div className="min-h-screen bg-slate-50 flex justify-center items-center p-4">
@@ -607,6 +790,7 @@ export function Admin() {
                     {[
                         ['dashboard', <TrendingUp size={18} />, 'Tổng quan'],
                         ['books', <BookOpen size={18} />, 'Sản phẩm'],
+                        ['categories', <Layers size={18} />, 'Danh mục'],
                         ['orders', <ShoppingBag size={18} />, 'Đơn hàng'],
                         ['users', <Users size={18} />, 'Khách hàng'],
                         ['reviews', <Star size={18} />, 'Reviews'],
@@ -672,6 +856,34 @@ export function Admin() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Revenue Chart */}
+                        {revenueData.length > 0 && (() => {
+                            const maxRev = Math.max(...revenueData.map(d => d.revenue), 1);
+                            return (
+                                <div className="bg-white rounded-2xl border p-6">
+                                    <h2 className="text-lg font-bold text-slate-800 mb-1">Doanh thu theo tháng</h2>
+                                    <p className="text-sm text-slate-500 mb-4">12 tháng gần nhất (đơn đã thanh toán)</p>
+                                    <div className="flex items-end gap-2 h-40">
+                                        {revenueData.map((d) => {
+                                            const heightPct = Math.round((d.revenue / maxRev) * 100);
+                                            return (
+                                                <div key={d.month} className="flex-1 flex flex-col items-center gap-1 group relative">
+                                                    <div className="absolute bottom-10 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
+                                                        {formatPrice(d.revenue)}<br />{d.orders} đơn
+                                                    </div>
+                                                    <div
+                                                        className="w-full rounded-t-md bg-indigo-500 hover:bg-indigo-600 transition-all cursor-default"
+                                                        style={{ height: `${Math.max(heightPct, 2)}%` }}
+                                                    />
+                                                    <span className="text-[10px] text-slate-400 truncate w-full text-center">{d.month.slice(5)}/{d.month.slice(0,4).slice(2)}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })()}
 
                         <div className="bg-white rounded-2xl border p-6">
                             <h2 className="text-lg font-bold text-slate-800 mb-4">Đơn hàng gần đây</h2>
@@ -780,57 +992,103 @@ export function Admin() {
                         </div>
                     </div>
                 ) : activeTab === 'users' ? (
-                    <div className="bg-white rounded-2xl border overflow-x-auto">
-                        <table className="w-full min-w-[950px] text-left">
-                            <thead>
-                                <tr className="bg-slate-50 border-b text-sm text-slate-500">
-                                    <th className="py-3 px-6">Khách hàng</th>
-                                    <th className="py-3 px-6">Email</th>
-                                    <th className="py-3 px-6">Vai trò</th>
-                                    <th className="py-3 px-6">Trạng thái</th>
-                                    <th className="py-3 px-6">Đơn hàng / Reviews</th>
-                                    <th className="py-3 px-6 text-center">Hành động</th>
-                                </tr>
-                            </thead>
-                            <tbody className="text-sm">
-                                {users.map((user) => (
-                                    <tr key={user.user_id} className="border-b border-slate-50">
-                                        <td className="py-3 px-6 font-semibold text-slate-800">{user.full_name || 'Đang cập nhật'}</td>
-                                        <td className="py-3 px-6 text-slate-600">{user.email}</td>
-                                        <td className="py-3 px-6">{user.role}</td>
-                                        <td className="py-3 px-6">{user.status}</td>
-                                        <td className="py-3 px-6">
-                                            {user._count?.orders ?? 0} / {user._count?.reviews ?? 0}
-                                        </td>
-                                        <td className="py-3 px-6 text-center">
-                                            {user.role !== 'admin' ? (
-                                                <button
-                                                    onClick={() => handleToggleUserStatus(user.user_id, user.status)}
-                                                    disabled={updatingUserId === user.user_id}
-                                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                                                        user.status === 'banned'
-                                                            ? 'bg-emerald-50 text-emerald-700'
-                                                            : 'bg-rose-50 text-rose-700'
-                                                    }`}
-                                                >
-                                                    {user.status === 'banned' ? (
-                                                        <>
-                                                            <UserCheck size={14} /> Unban
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Ban size={14} /> Ban
-                                                        </>
-                                                    )}
-                                                </button>
-                                            ) : (
-                                                <span className="text-slate-400">—</span>
-                                            )}
-                                        </td>
+                    <div className="space-y-4">
+                        {/* Search + Filter bar */}
+                        <div className="bg-white rounded-2xl border p-4 flex flex-wrap gap-3 items-center">
+                            <input
+                                type="text"
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                                placeholder="Tìm theo tên hoặc email..."
+                                className="flex-1 min-w-[220px] px-4 py-2 border border-slate-200 rounded-xl text-sm"
+                            />
+                            <select
+                                value={userStatusFilter}
+                                onChange={(e) => setUserStatusFilter(e.target.value)}
+                                className="px-4 py-2 border border-slate-200 rounded-xl text-sm"
+                            >
+                                <option value="">Tất cả trạng thái</option>
+                                <option value="active">Active</option>
+                                <option value="banned">Banned</option>
+                                <option value="unverified">Unverified</option>
+                            </select>
+                            <select
+                                value={userRoleFilter}
+                                onChange={(e) => setUserRoleFilter(e.target.value)}
+                                className="px-4 py-2 border border-slate-200 rounded-xl text-sm"
+                            >
+                                <option value="">Tất cả vai trò</option>
+                                <option value="customer">Customer</option>
+                                <option value="admin">Admin</option>
+                                <option value="moderator">Moderator</option>
+                            </select>
+                            <span className="text-sm text-slate-500">{filteredUsers.length} kết quả</span>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border overflow-x-auto">
+                            <table className="w-full min-w-[1050px] text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b text-sm text-slate-500">
+                                        <th className="py-3 px-6">Khách hàng</th>
+                                        <th className="py-3 px-6">Email</th>
+                                        <th className="py-3 px-6">Vai trò</th>
+                                        <th className="py-3 px-6">Trạng thái</th>
+                                        <th className="py-3 px-6">Đơn / Reviews</th>
+                                        <th className="py-3 px-6 text-center">Hành động</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {filteredUsers.map((user) => (
+                                        <tr key={user.user_id} className="border-b border-slate-50 hover:bg-slate-50/50">
+                                            <td className="py-3 px-6 font-semibold text-slate-800">{user.full_name || 'Đang cập nhật'}</td>
+                                            <td className="py-3 px-6 text-slate-600">{user.email}</td>
+                                            <td className="py-3 px-6">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-600'}`}>
+                                                    {user.role}
+                                                </span>
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                    user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                                                    user.status === 'banned' ? 'bg-rose-100 text-rose-700' :
+                                                    'bg-amber-100 text-amber-700'
+                                                }`}>{user.status}</span>
+                                            </td>
+                                            <td className="py-3 px-6">
+                                                <button
+                                                    onClick={() => openUserOrdersModal(user)}
+                                                    className="text-indigo-600 hover:underline text-xs font-semibold"
+                                                    title="Xem lịch sử đơn hàng"
+                                                >
+                                                    {user._count?.orders ?? 0} đơn / {user._count?.reviews ?? 0} reviews
+                                                </button>
+                                            </td>
+                                            <td className="py-3 px-6 text-center">
+                                                {user.role !== 'admin' ? (
+                                                    <button
+                                                        onClick={() => handleToggleUserStatus(user.user_id, user.status)}
+                                                        disabled={updatingUserId === user.user_id}
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                                                            user.status === 'banned'
+                                                                ? 'bg-emerald-50 text-emerald-700'
+                                                                : 'bg-rose-50 text-rose-700'
+                                                        }`}
+                                                    >
+                                                        {user.status === 'banned' ? (
+                                                            <><UserCheck size={14} /> Unban</>
+                                                        ) : (
+                                                            <><Ban size={14} /> Ban</>
+                                                        )}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-slate-400">—</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 ) : activeTab === 'reviews' ? (
                     <div className="space-y-4">
@@ -908,7 +1166,7 @@ export function Admin() {
                             {authorsLoading ? <div className="p-6 text-center text-slate-500">Đang tải...</div> : null}
                         </div>
                     </div>
-                ) : (
+                ) : activeTab === 'publishers' ? (
                     <div className="space-y-4">
                         <div className="flex justify-end">
                             <button onClick={openAddPublisherModal} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2">
@@ -953,7 +1211,47 @@ export function Admin() {
                             {publishersLoading ? <div className="p-6 text-center text-slate-500">Đang tải...</div> : null}
                         </div>
                     </div>
-                )}
+                ) : activeTab === 'categories' ? (
+                    <div className="space-y-4">
+                        <div className="flex justify-end">
+                            <button onClick={openAddCategoryModal} className="bg-indigo-600 text-white px-4 py-2 rounded-xl flex items-center gap-2">
+                                <Plus size={18} /> Thêm danh mục
+                            </button>
+                        </div>
+                        <div className="bg-white rounded-2xl border overflow-x-auto">
+                            <table className="w-full min-w-[900px] text-left">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b text-sm text-slate-500">
+                                        <th className="py-3 px-6">Tên danh mục</th>
+                                        <th className="py-3 px-6">Slug</th>
+                                        <th className="py-3 px-6">Thứ tự ưu tiên (Sort)</th>
+                                        <th className="py-3 px-6">Số sách liên kết</th>
+                                        <th className="py-3 px-6 text-center">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-sm">
+                                    {(categoriesLoading ? [] : categories).map((cat) => (
+                                        <tr key={cat.category_id} className="border-b border-slate-50">
+                                            <td className="py-3 px-6 font-semibold text-slate-800">{cat.name}</td>
+                                            <td className="py-3 px-6 text-slate-600">{cat.slug}</td>
+                                            <td className="py-3 px-6 text-slate-600">{cat.sort_order}</td>
+                                            <td className="py-3 px-6">{cat._count?.book_categories ?? 0}</td>
+                                            <td className="py-3 px-6 text-center flex justify-center gap-3">
+                                                <button onClick={() => openEditCategoryModal(cat)} className="text-indigo-600">
+                                                    <Edit size={18} />
+                                                </button>
+                                                <button onClick={() => { if(window.confirm('Chắc chắn xoá danh mục này?')) handleDeleteCategory(cat.category_id); }} className="text-rose-600">
+                                                    <Ban size={18} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            {categoriesLoading ? <div className="p-6 text-center text-slate-500">Đang tải...</div> : null}
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             {showBookModal ? (
@@ -972,7 +1270,20 @@ export function Admin() {
                                 <input required type="number" value={bookForm.price} onChange={(e) => setBookForm({ ...bookForm, price: e.target.value })} placeholder="Giá" className="w-full border border-slate-200 p-3 rounded-xl" />
                                 <input required type="number" value={bookForm.stock_qty} onChange={(e) => setBookForm({ ...bookForm, stock_qty: e.target.value })} placeholder="Tồn kho" className="w-full border border-slate-200 p-3 rounded-xl" />
                             </div>
-                            <input value={bookForm.cover_url} onChange={(e) => setBookForm({ ...bookForm, cover_url: e.target.value })} placeholder="URL ảnh bìa" className="w-full border border-slate-200 p-3 rounded-xl" />
+                            <div className="flex gap-4 items-center">
+                                {bookForm.cover_url && (
+                                    <img src={bookForm.cover_url.startsWith('http') ? bookForm.cover_url : `${API_URL}${bookForm.cover_url}`} alt="Preview" className="w-16 h-16 object-cover rounded-xl border border-slate-200" />
+                                )}
+                                <div className="flex-1 space-y-2">
+                                    <input value={bookForm.cover_url} onChange={(e) => setBookForm({ ...bookForm, cover_url: e.target.value })} placeholder="URL ảnh bìa hoặc Upload" className="w-full border border-slate-200 p-3 rounded-xl" />
+                                    <div className="flex items-center gap-2">
+                                        <label className="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+                                            {isUploadingImage ? 'Đang tải lên...' : 'Chọn ảnh từ máy tính'}
+                                            <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploadingImage} />
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             <textarea rows={4} value={bookForm.description} onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })} placeholder="Mô tả" className="w-full border border-slate-200 p-3 rounded-xl" />
                             <div className="flex justify-end gap-3">
                                 <button type="button" onClick={() => setShowBookModal(false)} className="px-5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
@@ -1020,6 +1331,84 @@ export function Admin() {
                                 <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold">{editingPublisherId ? 'Cập nhật' : 'Thêm mới'}</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {showCategoryModal ? (
+                <div className="fixed inset-0 z-50 bg-slate-900/40 flex justify-center items-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl">
+                        <div className="p-6 border-b flex justify-between">
+                            <h3 className="text-xl font-bold text-slate-800">{editingCategoryId ? 'Cập nhật danh mục' : 'Thêm danh mục'}</h3>
+                            <button onClick={() => setShowCategoryModal(false)} className="text-slate-400 hover:text-rose-500"><X size={20} /></button>
+                        </div>
+                        <form onSubmit={handleCategorySubmit} className="p-6 space-y-4">
+                            <input required value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder="Tên danh mục" className="w-full border border-slate-200 p-3 rounded-xl" />
+                            <input required value={categoryForm.slug} onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })} placeholder="Slug (vd: tieu-thuyet)" className="w-full border border-slate-200 p-3 rounded-xl" />
+                            <input required type="number" value={categoryForm.sort_order} onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: e.target.value })} placeholder="Thứ tự hiển thị (0, 1, 2...)" className="w-full border border-slate-200 p-3 rounded-xl" />
+                            <div className="flex justify-end gap-3">
+                                <button type="button" onClick={() => setShowCategoryModal(false)} className="px-5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
+                                <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold">{editingCategoryId ? 'Cập nhật' : 'Thêm mới'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* User Orders Modal */}
+            {selectedUserForOrders ? (
+                <div className="fixed inset-0 z-50 bg-slate-900/40 flex justify-center items-start p-4 overflow-y-auto">
+                    <div className="bg-white rounded-2xl w-full max-w-3xl shadow-2xl my-8">
+                        <div className="p-6 border-b flex justify-between items-start">
+                            <div>
+                                <h3 className="text-xl font-bold text-slate-800">
+                                    Lịch sử đơn hàng
+                                </h3>
+                                <p className="text-sm text-slate-500 mt-0.5">
+                                    {selectedUserForOrders.full_name || selectedUserForOrders.email} — {selectedUserForOrders.email}
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedUserForOrders(null)} className="text-slate-400 hover:text-rose-500">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            {userOrdersLoading ? (
+                                <div className="flex justify-center py-8">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+                                </div>
+                            ) : userOrders.length === 0 ? (
+                                <p className="text-center text-slate-500 py-8">Khách hàng này chưa có đơn hàng nào.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {userOrders.map((order: any) => {
+                                        const sm = getOrderStatusMeta(order.status);
+                                        return (
+                                            <div key={order.order_id} className="border rounded-xl overflow-hidden">
+                                                <div className="bg-slate-50 px-4 py-3 flex flex-wrap gap-3 justify-between items-center border-b">
+                                                    <span className="font-bold text-slate-800 text-sm">#{order.order_code}</span>
+                                                    <span className="text-xs text-slate-500">{formatDate(order.created_at)}</span>
+                                                    <span className="font-bold text-indigo-600 text-sm">{formatPrice(order.total_amount)}</span>
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${sm.badgeClassName}`}>{sm.label}</span>
+                                                </div>
+                                                {order.items?.map((item: any, idx: number) => (
+                                                    <div key={idx} className="px-4 py-2 flex items-center gap-3 border-b last:border-0 text-sm">
+                                                        <img
+                                                            src={item.book?.cover_url ? (item.book.cover_url.startsWith('http') ? item.book.cover_url : `${API_URL}${item.book.cover_url}`) : 'https://placehold.co/40x56'}
+                                                            alt={item.book?.title}
+                                                            className="w-8 h-11 object-cover rounded"
+                                                        />
+                                                        <span className="flex-1 text-slate-700">{item.book?.title}</span>
+                                                        <span className="text-slate-500">x{item.quantity}</span>
+                                                        <span className="text-slate-700 font-medium">{formatPrice(item.unit_price)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             ) : null}

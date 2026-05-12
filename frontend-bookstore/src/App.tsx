@@ -13,8 +13,10 @@ import { Register } from './pages/Register';
 import { Account } from './pages/Account';
 import { NewBooks } from './pages/NewBooks';
 import { BestSellers } from './pages/BestSellers';
+import { PaymentResult } from './pages/PaymentResult';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './components/Toast';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -40,6 +42,7 @@ function StoreLayout() {
 
 export default function App() {
   return (
+    <ToastProvider>
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
@@ -53,6 +56,7 @@ export default function App() {
               <Route path="/book/:bookId" element={<BookDetail />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/payment/result" element={<PaymentResult />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/account" element={<Account />} />
@@ -62,5 +66,6 @@ export default function App() {
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>
+    </ToastProvider>
   );
 }
