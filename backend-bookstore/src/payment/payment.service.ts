@@ -2,18 +2,24 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import axios from 'axios';
-import { PayOS } from '@payos/node';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { PayOS } = require('@payos/node');
 
 @Injectable()
 export class PaymentService {
-  private payOS: PayOS;
+  private payOS: any;
 
   constructor(private prisma: PrismaService) {
-    this.payOS = new PayOS({
-      clientId: process.env.PAYOS_CLIENT_ID,
-      apiKey: process.env.PAYOS_API_KEY,
-      checksumKey: process.env.PAYOS_CHECKSUM_KEY,
-    });
+    if (process.env.PAYOS_CLIENT_ID && process.env.PAYOS_API_KEY && process.env.PAYOS_CHECKSUM_KEY) {
+      this.payOS = new PayOS({
+        clientId: process.env.PAYOS_CLIENT_ID,
+        apiKey: process.env.PAYOS_API_KEY,
+        checksumKey: process.env.PAYOS_CHECKSUM_KEY,
+      });
+    } else {
+      console.warn('PayOS credentials not configured. PayOS payments will be unavailable.');
+      this.payOS = null;
+    }
   }
 
   // MoMo Configuration

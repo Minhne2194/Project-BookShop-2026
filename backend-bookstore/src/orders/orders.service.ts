@@ -21,6 +21,9 @@ export class OrdersService {
         return PaymentMethod.momo;
       case PaymentMethod.vnpay:
         return PaymentMethod.vnpay;
+      case PaymentMethod.payos:
+      case 'payos':
+        return PaymentMethod.payos;
       case PaymentMethod.cod:
       default:
         return PaymentMethod.cod;
@@ -98,10 +101,10 @@ export class OrdersService {
     // For online payment methods (MoMo, VNPay), set initial status to pending
     // The order will be confirmed after payment callback
     const isOnlinePayment =
-      paymentMethod === 'momo' ||
-      paymentMethod === 'vnpay' ||
-      paymentMethod === 'payos' ||
-      paymentMethod === 'bank_transfer';
+      paymentMethod === PaymentMethod.momo ||
+      paymentMethod === PaymentMethod.vnpay ||
+      paymentMethod === PaymentMethod.payos ||
+      paymentMethod === PaymentMethod.bank_transfer;
     const initialStatus = isOnlinePayment ? 'pending' : 'pending';
 
     const order = await this.prisma.$transaction(async (tx) => {

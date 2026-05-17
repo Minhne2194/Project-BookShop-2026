@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../components/Toast';
-import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle } from 'lucide-react';
+import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
 
@@ -12,6 +12,7 @@ interface Book {
     price: string | number;
     cover_url: string | null;
     category?: string;
+    categories?: { category_id: string; name: string; parent?: { name: string } }[];
     author?: string;
     avg_rating?: number;
     rating_count?: number;
@@ -62,6 +63,7 @@ export function BookDetail() {
     const [reviewPage, setReviewPage] = useState(1);
     const [reviewTotal, setReviewTotal] = useState(0);
 
+    const [isDescExpanded, setIsDescExpanded] = useState(true);
 
     const [showReviewForm, setShowReviewForm] = useState(false);
     const [newRating, setNewRating] = useState(5);
@@ -183,8 +185,10 @@ export function BookDetail() {
                         initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
                         className="md:col-span-7 lg:col-span-8 bg-white rounded-3xl p-6 md:p-12 shadow-sm border border-slate-100 flex flex-col"
                     >
-                        <div className="text-sm font-semibold text-indigo-600 mb-2 uppercase tracking-wider">
-                            {book.category || 'Sách chuyên mục'}
+                        <div className="text-sm font-semibold text-indigo-600 mb-2 uppercase tracking-wider flex flex-wrap gap-2">
+                            {book.categories && book.categories.length > 0
+                                ? Array.from(new Set(book.categories.flatMap(cat => cat.parent ? [cat.parent.name, cat.name] : [cat.name]))).join(' • ')
+                                : (book.category || 'Sách chuyên mục')}
                         </div>
                         <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 leading-tight">
                             {book.title}
@@ -206,9 +210,44 @@ export function BookDetail() {
                             )}
                         </div>
 
-                        <p className="text-slate-600 leading-relaxed mb-8">
-                            {book.description || 'Chúng tôi đang cập nhật thêm nội dung giới thiệu cho cuốn sách này.'}
-                        </p>
+                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
+                            <div className="flex items-center border border-slate-200 rounded-full bg-slate-50 w-full sm:w-32 h-12">
+                                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-full flex items-center justify-center text-slate-600 hover:text-indigo-600 font-bold text-xl">-</button>
+                                <span className="flex-1 text-center font-bold text-slate-900">{quantity}</span>
+                                <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-full flex items-center justify-center text-slate-600 hover:text-indigo-600 font-bold text-xl">+</button>
+                            </div>
+                            <button
+                                onClick={handleAddToCart}
+                                className="w-full sm:flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                            >
+                                <ShoppingBag className="w-5 h-5" /> Thêm vào giỏ hàng
+                            </button>
+                        </div>
+
+                        <div className="mb-8 border-b border-slate-100 pb-4">
+                            <button 
+                                onClick={() => setIsDescExpanded(!isDescExpanded)}
+                                className="w-full flex items-center justify-between text-2xl font-serif font-bold text-slate-900 mb-4"
+                            >
+                                Mô tả sách
+                                {isDescExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                            </button>
+                            
+                            <AnimatePresence>
+                                {isDescExpanded && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="text-slate-600 leading-relaxed pb-4 whitespace-pre-wrap">
+                                            {book.description || 'Chúng tôi đang cập nhật thêm nội dung giới thiệu cho cuốn sách này.'}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
 
                         <div className="bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
                             <h3 className="font-bold text-slate-900 text-lg mb-4">Thông tin chi tiết</h3>
@@ -226,21 +265,6 @@ export function BookDetail() {
                                     </div>
                                 ))}
                             </div>
-                        </div>
-
-
-                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-8">
-                            <div className="flex items-center border border-slate-200 rounded-full bg-slate-50 w-full sm:w-32 h-12">
-                                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-full flex items-center justify-center text-slate-600 hover:text-indigo-600 font-bold text-xl">-</button>
-                                <span className="flex-1 text-center font-bold text-slate-900">{quantity}</span>
-                                <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-full flex items-center justify-center text-slate-600 hover:text-indigo-600 font-bold text-xl">+</button>
-                            </div>
-                            <button
-                                onClick={handleAddToCart}
-                                className="w-full sm:flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
-                            >
-                                <ShoppingBag className="w-5 h-5" /> Thêm vào giỏ hàng
-                            </button>
                         </div>
 
                         <div className="flex flex-col gap-3 p-6 bg-slate-50 rounded-2xl border border-slate-100 mt-auto">

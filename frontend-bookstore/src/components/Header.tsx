@@ -106,7 +106,7 @@ export function Header() {
                 <User className="w-5 h-5 text-indigo-600" /> Tài khoản
               </Link>
               <button onClick={handleLogout} className="text-sm text-red-500 hover:text-red-700 font-medium">
-                Thoát
+                Đăng xuất
               </button>
             </div>
           ) : (

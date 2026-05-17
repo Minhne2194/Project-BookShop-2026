@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Globe } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { SafeImage } from '../components/SafeImage';
@@ -17,21 +17,25 @@ export function Home() {
   const [featuredBooks, setFeaturedBooks] = useState<Book[]>([]);
   const [newBooks, setNewBooks] = useState<Book[]>([]);
   const [bestSellers, setBestSellers] = useState<Book[]>([]);
+  const [englishBooks, setEnglishBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { handleAddToCart } = useCart();
 
   const newBooksScrollRef = useRef<HTMLDivElement>(null);
   const bestSellersScrollRef = useRef<HTMLDivElement>(null);
+  const englishBooksScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
       Promise.all([
         fetch('http://localhost:3000/books?limit=12').then(res => res.json()),
         fetch('http://localhost:3000/books?sort=newest&limit=10').then(res => res.json()),
-        fetch('http://localhost:3000/books?sort=bestseller&limit=10').then(res => res.json())
-      ]).then(([featuredRes, newRes, bsRes]) => {
+        fetch('http://localhost:3000/books?sort=bestseller&limit=10').then(res => res.json()),
+        fetch('http://localhost:3000/books?lang=en&limit=10').then(res => res.json()),
+      ]).then(([featuredRes, newRes, bsRes, enRes]) => {
         setFeaturedBooks(featuredRes.data || featuredRes);
         setNewBooks(newRes.data || newRes);
         setBestSellers(bsRes.data || bsRes);
+        setEnglishBooks(enRes.data || enRes);
         setLoading(false);
       }).catch(err => {
         console.error("Lỗi lấy dữ liệu:", err);
@@ -88,7 +92,7 @@ export function Home() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid md:grid-cols-2 gap-11 mb-11">
+        <div className="grid md:grid-cols-3 gap-11 mb-11">
           <div className="bg-white rounded-lg flex flex-col sm:flex-row shadow-sm border border-slate-200">
             <div className="flex gap-3 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
               {newBooks[0] && (
@@ -126,6 +130,29 @@ export function Home() {
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Bán chạy tuần này</h3>
               <Link to="/best-sellers" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
+                Xem tất cả
+              </Link>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg flex flex-col sm:flex-row shadow-sm border border-slate-200">
+            <div className="flex gap-3 py-6 px-4 sm:px-6 items-center shrink-0 w-full sm:w-auto">
+              {englishBooks[0] && (
+                <SafeImage src={englishBooks[0].cover_url || "https://placehold.co/200x300"} alt={englishBooks[0].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
+              {englishBooks[1] && (
+                <SafeImage src={englishBooks[1].cover_url || "https://placehold.co/200x300"} alt={englishBooks[1].title} className="w-16 md:w-20 object-contain mix-blend-multiply bg-slate-50 rounded p-1 aspect-2/3" />
+              )}
+            </div>
+            <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 bg-indigo-600 text-white flex items-center justify-center rounded-full font-serif font-bold text-base">
+                  <Globe size={16} />
+                </div>
+                <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
+              </div>
+              <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Sách tiếng Anh</h3>
+              <Link to="/search?lang=en" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
                 Xem tất cả
               </Link>
             </div>
@@ -234,6 +261,39 @@ export function Home() {
           ))}
         </div>
       </section>
+
+      {englishBooks.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 py-8">
+          <h2 className="text-[25px] font-serif font-bold text-black mb-4">English Books</h2>
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-indigo-600 text-white flex items-center justify-center rounded-full">
+                <Globe size={16} />
+              </div>
+              <span className="font-medium text-slate-700 text-base">Modern Book</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link to="/search?lang=en" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">View All</Link>
+              <div className="flex gap-2">
+                <button onClick={() => scroll(englishBooksScrollRef, 'left')} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600">
+                  <ChevronLeft size={20} />
+                </button>
+                <button onClick={() => scroll(englishBooksScrollRef, 'right')} className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600">
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div ref={englishBooksScrollRef} className="flex overflow-x-auto gap-4 md:gap-6 pb-6 snap-x no-scrollbar scroll-smooth">
+            {englishBooks.map((book, idx) => (
+              <Link key={`en-${book?.book_id}-${idx}`} to={`/book/${book?.book_id}`} className="w-[120px] md:w-[140px] shrink-0 snap-start bg-white border border-slate-100 rounded-md overflow-hidden aspect-2/3 hover:shadow-md transition-shadow p-2 flex items-center justify-center">
+                <SafeImage src={book?.cover_url || "https://placehold.co/200x300"} alt={book?.title} className="w-full h-full object-contain mix-blend-multiply hover:-translate-y-1 transition-transform" />
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="max-w-7xl mx-auto px-4 py-16 border-t border-slate-200 mt-8">
         <div className="flex justify-between items-end mb-8">

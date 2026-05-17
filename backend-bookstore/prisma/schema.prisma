@@ -23,6 +23,7 @@ model User {
   behavior_events UserBehaviorEvent[]
   profile         UserProfile?
   sessions        UserSession[]
+  addresses       UserAddress[]
 
   @@index([email])
   @@index([status])
@@ -54,6 +55,26 @@ model UserSession {
   @@index([user_id])
   @@index([expires_at])
   @@map("user_sessions")
+}
+
+model UserAddress {
+  address_id    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id       String   @db.Uuid
+  receiver_name String   @db.VarChar(200)
+  phone         String   @db.VarChar(20)
+  province      String   @db.VarChar(100)
+  district      String   @db.VarChar(100)
+  ward          String   @db.VarChar(100)
+  street        String   @db.VarChar(255)
+  is_default    Boolean  @default(false)
+  address_type  String   @default("home") @db.VarChar(20)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @updatedAt @db.Timestamptz(6)
+
+  user          User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("user_addresses")
 }
 
 model Publisher {

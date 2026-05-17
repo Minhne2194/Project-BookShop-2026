@@ -12,15 +12,37 @@ const MERGE_MODE = process.env.FAHASA_MERGE !== '0'; // default: merge with exis
 // Override with env: FAHASA_SOURCES="van-hoc,kinh-te,thieu-nhi"
 const DEFAULT_SOURCES = [
   { slug: 'sach-trong-nuoc', label: 'Sách trong nước (tổng hợp)' },
-  { slug: 'sach-trong-nuoc/van-hoc-trong-nuoc', label: 'Văn học' },
-  { slug: 'sach-trong-nuoc/kinh-te-chinh-tri-phap-ly', label: 'Kinh tế' },
-  { slug: 'sach-trong-nuoc/tam-ly-ky-nang-song', label: 'Tâm lý - Kỹ năng sống' },
   { slug: 'sach-trong-nuoc/thieu-nhi', label: 'Thiếu nhi' },
-  { slug: 'sach-trong-nuoc/manga-comic', label: 'Manga - Comic' },
-  { slug: 'sach-trong-nuoc/sach-hoc-ngoai-ngu', label: 'Sách học ngoại ngữ' },
   { slug: 'sach-trong-nuoc/giao-khoa-tham-khao', label: 'Giáo khoa - Tham khảo' },
+  { slug: 'sach-trong-nuoc/van-hoc-trong-nuoc', label: 'Văn học' },
+  { slug: 'sach-trong-nuoc/manga-comic', label: 'Manga - Comic' },
+  { slug: 'sach-trong-nuoc/tam-ly-ky-nang-song', label: 'Tâm lý - Kỹ năng sống' },
+  { slug: 'sach-trong-nuoc/sach-hoc-ngoai-ngu', label: 'Sách học ngoại ngữ' },
+  { slug: 'sach-trong-nuoc/kinh-te', label: 'Kinh tế' },
+  { slug: 'sach-trong-nuoc/lich-su-dia-ly-ton-giao', label: 'Lịch sử - Địa lý - Tôn giáo' },
   { slug: 'sach-trong-nuoc/khoa-hoc-ky-thuat', label: 'Khoa học - Kỹ thuật' },
-  { slug: 'sach-trong-nuoc/van-hoa-nghe-thuat-du-lich', label: 'Văn hóa - Nghệ thuật' },
+  { slug: 'sach-trong-nuoc/chinh-tri-phap-ly-triet-hoc', label: 'Chính trị - Pháp lý - Triết học' },
+  { slug: 'sach-trong-nuoc/nuoi-day-con', label: 'Nuôi dạy con' },
+  { slug: 'sach-trong-nuoc/tieu-su-hoi-ky', label: 'Tiểu sử - Hồi ký' },
+  { slug: 'sach-trong-nuoc/dam-my', label: 'Đam mỹ' },
+  { slug: 'sach-trong-nuoc/van-hoa-nghe-thuat-du-lich', label: 'Văn hóa - Nghệ thuật - Du lịch' },
+  { slug: 'sach-trong-nuoc/nu-cong-gia-chanh', label: 'Nữ công - Gia chánh' },
+  { slug: 'sach-trong-nuoc/phong-thuy-kinh-dich', label: 'Phong thủy - Kinh dịch' },
+  { slug: 'sach-trong-nuoc/tu-dien', label: 'Từ điển' },
+  { slug: 'sach-trong-nuoc/the-duc-the-thao-giai-tri', label: 'Thể dục - Thể thao - Giải trí' },
+  { slug: 'sach-trong-nuoc/am-nhac-my-thuat-thoi-trang', label: 'Âm nhạc - Mỹ thuật - Thời trang' },
+  { slug: 'sach-trong-nuoc/bao-tap-chi', label: 'Báo - Tạp chí' },
+  { slug: 'sach-trong-nuoc/giao-trinh', label: 'Giáo trình' },
+  { slug: 'sach-trong-nuoc/lam-vuon-thu-nuoi', label: 'Làm vườn - Thú nuôi' },
+  // Sách ngoại văn (English books)
+  { slug: 'sach-ngoai-van', label: 'Ngoại văn (tổng hợp)' },
+  { slug: 'sach-ngoai-van/fiction', label: 'Fiction' },
+  { slug: 'sach-ngoai-van/business-management', label: 'Business & Management' },
+  { slug: 'sach-ngoai-van/children-s-books', label: "Children's Books" },
+  { slug: 'sach-ngoai-van/science-technology', label: 'Science & Technology' },
+  { slug: 'sach-ngoai-van/self-help', label: 'Self-Help' },
+  { slug: 'sach-ngoai-van/biographies-memoirs', label: 'Biographies & Memoirs' },
+  { slug: 'sach-ngoai-van/teen-young-adult', label: 'Teen & Young Adult' },
 ];
 
 function getActiveSources() {
@@ -237,6 +259,9 @@ async function fetchBookDetail(browser, item, index, total) {
         binding: detail.infoRows['Hình thức'] || null,
       },
     };
+  } catch (error) {
+    console.warn(`    [!] Failed to fetch details for ${item.title}:`, error.message);
+    return null;
   } finally {
     await page.close();
   }

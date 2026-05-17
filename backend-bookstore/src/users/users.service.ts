@@ -46,24 +46,62 @@ export class UsersService {
   }
 
   async getProfile(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { user_id: userId },
-      select: { email: true, full_name: true, phone: true },
+      select: { 
+        email: true, 
+        full_name: true, 
+        phone: true,
+        profile: {
+          select: { gender: true, birthday: true }
+        }
+      },
     });
+
+    if (!user) return null;
+
+    return {
+      email: user.email,
+      full_name: user.full_name,
+      phone: user.phone,
+      gender: user.profile?.gender,
+      birthday: user.profile?.birthday,
+    };
   }
 
   async updateProfile(
     userId: string,
-    data: { full_name?: string; phone?: string },
+    data: { full_name?: string; phone?: string; gender?: string; birthday?: string },
   ) {
-    return this.prisma.user.update({
+    await this.prisma.user.update({
       where: { user_id: userId },
       data: {
         full_name: data.full_name,
         phone: data.phone,
       },
-      select: { email: true, full_name: true, phone: true },
     });
+
+    if (data.gender !== undefined || data.birthday !== undefined) {
+      let birthdayDate: Date | null = null;
+      if (data.birthday) {
+        birthdayDate = new Date(data.birthday);
+      }
+
+      await this.prisma.userProfile.upsert({
+        where: { user_id: userId },
+        create: {
+          user_id: userId,
+          gender: data.gender,
+          birthday: birthdayDate,
+        },
+        update: {
+          gender: data.gender,
+          birthday: birthdayDate,
+        },
+      });
+    }
+
+    return this.getProfile(userId);
   }
 
   async deleteAccount(userId: string) {
@@ -80,5 +118,106 @@ export class UsersService {
       }
       throw new BadRequestException('Có lỗi xảy ra khi xóa tài khoản.');
     }
+  }
+
+  // --- Address Book ---
+
+  async getAddresses(userId: string) {
+    return this.prisma.userAddress.findMany({
+      where: { user_id: userId },
+      orderBy: [{ is_default: 'desc' }, { created_at: 'desc' }],
+    });
+  }
+
+  async addAddress(
+    userId: string,
+    data: {
+      receiver_name: string;
+      phone: string;
+      province: string;
+      district: string;
+      ward: string;
+      street: string;
+      is_default?: boolean;
+      address_type?: string;
+    },
+  ) {
+    if (data.is_default) {
+      await this.prisma.userAddress.updateMany({
+        where: { user_id: userId, is_default: true },
+        data: { is_default: false },
+      });
+    }
+
+    return this.prisma.userAddress.create({
+      data: {
+        user_id: userId,
+        receiver_name: data.receiver_name,
+        phone: data.phone,
+        province: data.province,
+        district: data.district,
+        ward: data.ward,
+        street: data.street,
+        is_default: data.is_default ?? false,
+        address_type: data.address_type ?? 'home',
+      },
+    });
+  }
+
+  async updateAddress(
+    userId: string,
+    addressId: string,
+    data: {
+      receiver_name?: string;
+      phone?: string;
+      province?: string;
+      district?: string;
+      ward?: string;
+      street?: string;
+      is_default?: boolean;
+      address_type?: string;
+    },
+  ) {
+    const address = await this.prisma.userAddress.findFirst({
+      where: { address_id: addressId, user_id: userId },
+    });
+    if (!address) {
+      throw new BadRequestException('Địa chỉ không tồn tại.');
+    }
+
+    if (data.is_default) {
+      await this.prisma.userAddress.updateMany({
+        where: { user_id: userId, is_default: true },
+        data: { is_default: false },
+      });
+    }
+
+    return this.prisma.userAddress.update({
+      where: { address_id: addressId },
+      data: {
+        receiver_name: data.receiver_name,
+        phone: data.phone,
+        province: data.province,
+        district: data.district,
+        ward: data.ward,
+        street: data.street,
+        is_default: data.is_default,
+        address_type: data.address_type,
+      },
+    });
+  }
+
+  async deleteAddress(userId: string, addressId: string) {
+    const address = await this.prisma.userAddress.findFirst({
+      where: { address_id: addressId, user_id: userId },
+    });
+    if (!address) {
+      throw new BadRequestException('Địa chỉ không tồn tại.');
+    }
+
+    await this.prisma.userAddress.delete({
+      where: { address_id: addressId },
+    });
+    return { message: 'Xóa địa chỉ thành công.' };
   }
 }

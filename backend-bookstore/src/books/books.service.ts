@@ -63,6 +63,8 @@ export class BooksService {
       minPrice?: number;
       maxPrice?: number;
       lang?: string;
+      q?: string;
+      rating?: number;
     } = {},
   ) {
     const skip = (page - 1) * limit;
@@ -94,6 +96,33 @@ export class BooksService {
     }
     if (filters.author) {
       where.book_authors = { some: { author_id: filters.author } };
+    }
+    if (filters.q?.trim()) {
+      const normalizedQuery = filters.q.trim().replace(/\s+/g, ' ');
+      const terms = normalizedQuery
+        .split(' ')
+        .map((term) => term.trim())
+        .filter(Boolean)
+        .slice(0, 8);
+      where.AND = [
+        ...(where.AND || []),
+        ...terms.map((term) => ({
+          OR: [
+            { title: { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+            {
+              book_authors: {
+                some: {
+                  author: { name: { contains: term, mode: 'insensitive' } },
+                },
+              },
+            },
+          ],
+        })),
+      ];
+    }
+    if (filters.rating !== undefined) {
+      where.avg_rating = { gte: filters.rating };
     }
 
     let orderByClause: any = { created_at: 'desc' };

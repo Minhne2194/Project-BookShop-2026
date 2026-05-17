@@ -50,6 +50,8 @@ export class BooksController {
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
     @Query('lang') lang?: string,
+    @Query('q') q?: string,
+    @Query('rating') rating?: string,
   ) {
     const pageNumber = page ? parseInt(page, 10) : 1;
     const limitNumber = limit ? parseInt(limit, 10) : 100;
@@ -61,6 +63,8 @@ export class BooksController {
       minPrice: minPrice ? parseFloat(minPrice) : undefined,
       maxPrice: maxPrice ? parseFloat(maxPrice) : undefined,
       lang,
+      q,
+      rating: rating ? parseFloat(rating) : undefined,
     });
   }
 

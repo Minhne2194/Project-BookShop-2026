@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { User, ShoppingBag, MapPin, LogOut, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, ShoppingBag, MapPin, LogOut, CheckCircle2, AlertCircle, Plus, Home, Building2, Trash2, Pencil } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../components/Toast';
 import { getOrderStatusMeta } from '../utils/orderStatus';
@@ -26,11 +26,44 @@ interface UserProfile {
   email: string;
   full_name?: string | null;
   phone?: string | null;
+  gender?: string | null;
+  birthday?: string | null;
+}
+
+interface UserAddress {
+  address_id: string;
+  receiver_name: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  street: string;
+  is_default: boolean;
+  address_type: string;
+  created_at: string;
 }
 
 type MessageState = {
   type: '' | 'success' | 'error';
   text: string;
+};
+
+interface LocationOption {
+  name: string;
+  code: number;
+}
+
+const PROVINCE_API = 'https://provinces.open-api.vn/api';
+
+const emptyAddressForm = {
+  receiver_name: '',
+  phone: '',
+  province: '',
+  district: '',
+  ward: '',
+  street: '',
+  is_default: false,
+  address_type: 'home' as 'home' | 'office',
 };
 
 export function Account() {
@@ -45,8 +78,73 @@ export function Account() {
 
   const [editFullName, setEditFullName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editGender, setEditGender] = useState('');
+  const [editBirthday, setEditBirthday] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<MessageState>({ type: '', text: '' });
+
+  // Address state
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressForm, setAddressForm] = useState(emptyAddressForm);
+  const [addressMessage, setAddressMessage] = useState<MessageState>({ type: '', text: '' });
+  const [isSavingAddr, setIsSavingAddr] = useState(false);
+
+  // --- Location dropdown state ---
+  const [provinces, setProvinces] = useState<LocationOption[]>([]);
+  const [districts, setDistricts] = useState<LocationOption[]>([]);
+  const [wards, setWards] = useState<LocationOption[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [selectedProvince, setSelectedProvince] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('');
+
+  // Fetch provinces once
+  useEffect(() => {
+    fetch(`${PROVINCE_API}/p/`)
+      .then((r) => r.json())
+      .then((data) => setProvinces(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, []);
+
+  // Fetch districts when province changes
+  const fetchDistricts = async (province: string) => {
+    setDistricts([]);
+    setWards([]);
+    if (!province) return;
+    setLoadingDistricts(true);
+    try {
+      const provinceObj = provinces.find((p) => p.name === province);
+      if (!provinceObj) return;
+      const res = await fetch(`${PROVINCE_API}/p/${provinceObj.code}?depth=2`);
+      const data = await res.json();
+      setDistricts(data.districts || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingDistricts(false);
+    }
+  };
+
+  // Fetch wards when district changes
+  const fetchWards = async (district: string) => {
+    setWards([]);
+    if (!district) return;
+    setLoadingWards(true);
+    try {
+      const districtObj = districts.find((d) => d.name === district);
+      if (!districtObj) return;
+      const res = await fetch(`${PROVINCE_API}/d/${districtObj.code}?depth=2`);
+      const data = await res.json();
+      setWards(data.wards || []);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingWards(false);
+    }
+  };
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -68,6 +166,12 @@ export function Account() {
           setProfile(profileData);
           setEditFullName(profileData.full_name || '');
           setEditPhone(profileData.phone || '');
+          setEditGender(profileData.gender || '');
+          if (profileData.birthday) {
+            setEditBirthday(profileData.birthday.split('T')[0]);
+          } else {
+            setEditBirthday('');
+          }
         }
 
         if (ordersRes.ok) {
@@ -86,6 +190,30 @@ export function Account() {
     fetchAccountData();
   }, [token]);
 
+  // Fetch addresses when tab switches
+  useEffect(() => {
+    if (activeTab === 'addresses') {
+      fetchAddresses();
+    }
+  }, [activeTab]);
+
+  const fetchAddresses = async () => {
+    setAddressLoading(true);
+    try {
+      const res = await fetch('http://localhost:3000/users/addresses', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data: UserAddress[] = await res.json();
+        setAddresses(data);
+      }
+    } catch (err) {
+      console.error('Lỗi tải địa chỉ:', err);
+    } finally {
+      setAddressLoading(false);
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -98,7 +226,12 @@ export function Account() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ full_name: editFullName, phone: editPhone }),
+        body: JSON.stringify({
+          full_name: editFullName,
+          phone: editPhone,
+          gender: editGender || undefined,
+          birthday: editBirthday || undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -147,6 +280,105 @@ export function Account() {
     localStorage.removeItem('token');
     setToken(null);
     navigate('/');
+  };
+
+  // --- Address handlers ---
+
+  const openAddForm = () => {
+    setEditingAddressId(null);
+    setAddressForm(emptyAddressForm);
+    setAddressMessage({ type: '', text: '' });
+    setShowAddressForm(true);
+  };
+
+  const openEditForm = (addr: UserAddress) => {
+    setEditingAddressId(addr.address_id);
+    setAddressForm({
+      receiver_name: addr.receiver_name,
+      phone: addr.phone,
+      province: addr.province,
+      district: addr.district,
+      ward: addr.ward,
+      street: addr.street,
+      is_default: addr.is_default,
+      address_type: addr.address_type as 'home' | 'office',
+    });
+    setAddressMessage({ type: '', text: '' });
+    setShowAddressForm(true);
+  };
+
+  const closeAddressForm = () => {
+    setShowAddressForm(false);
+    setEditingAddressId(null);
+    setAddressForm(emptyAddressForm);
+    setAddressMessage({ type: '', text: '' });
+  };
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingAddr(true);
+    setAddressMessage({ type: '', text: '' });
+
+    const body = {
+      receiver_name: addressForm.receiver_name,
+      phone: addressForm.phone,
+      province: addressForm.province,
+      district: addressForm.district,
+      ward: addressForm.ward,
+      street: addressForm.street,
+      is_default: addressForm.is_default,
+      address_type: addressForm.address_type,
+    };
+
+    try {
+      const url = editingAddressId
+        ? `http://localhost:3000/users/addresses/${editingAddressId}`
+        : 'http://localhost:3000/users/addresses';
+
+      const res = await fetch(url, {
+        method: editingAddressId ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        setAddressMessage({ type: 'error', text: errData?.message || 'Có lỗi xảy ra.' });
+        return;
+      }
+
+      setAddressMessage({ type: 'success', text: editingAddressId ? 'Cập nhật địa chỉ thành công.' : 'Thêm địa chỉ mới thành công.' });
+      await fetchAddresses();
+      closeAddressForm();
+    } catch {
+      setAddressMessage({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
+    } finally {
+      setIsSavingAddr(false);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId: string) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) return;
+
+    try {
+      const res = await fetch(`http://localhost:3000/users/addresses/${addressId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        toast('Không thể xóa địa chỉ.', 'error');
+        return;
+      }
+
+      toast('Đã xóa địa chỉ.', 'success');
+      await fetchAddresses();
+    } catch {
+      toast('Có lỗi xảy ra khi xóa địa chỉ.', 'error');
+    }
   };
 
   const formatPrice = (price: string | number) =>
@@ -231,6 +463,7 @@ export function Account() {
           </div>
 
           <div className="flex-1">
+            {/* --- Profile Tab --- */}
             {activeTab === 'profile' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Thông tin cá nhân</h2>
@@ -281,6 +514,30 @@ export function Account() {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Giới tính</label>
+                    <select
+                      value={editGender}
+                      onChange={(e) => setEditGender(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="">Chưa cập nhật</option>
+                      <option value="male">Nam</option>
+                      <option value="female">Nữ</option>
+                      <option value="other">Khác</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
+                    <input
+                      type="date"
+                      value={editBirthday}
+                      onChange={(e) => setEditBirthday(e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+
                   <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-70">
                     {isSaving ? 'ĐANG LƯU...' : 'Lưu thay đổi'}
                   </button>
@@ -303,6 +560,7 @@ export function Account() {
               </div>
             )}
 
+            {/* --- Orders Tab --- */}
             {activeTab === 'orders' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Lịch sử đơn hàng</h2>
@@ -354,19 +612,263 @@ export function Account() {
               </div>
             )}
 
+            {/* --- Addresses Tab --- */}
             {activeTab === 'addresses' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
                   <h2 className="text-xl font-bold text-slate-900">Sổ địa chỉ</h2>
+                  {!showAddressForm && (
+                    <button
+                      onClick={openAddForm}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+                    >
+                      <Plus size={18} /> Thêm địa chỉ mới
+                    </button>
+                  )}
                 </div>
 
-                <div className="border border-indigo-200 bg-indigo-50/30 p-5 rounded-xl block relative">
-                  <span className="absolute top-4 right-4 text-xs font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded">
-                    Mặc định
-                  </span>
-                  <p className="font-bold text-slate-900 mb-1">{profile?.full_name || 'Đang cập nhật'}</p>
-                  <p className="text-slate-600 text-sm">{profile?.phone || 'Chưa có SĐT'}</p>
-                </div>
+                {/* Address form */}
+                {showAddressForm && (
+                  <form onSubmit={handleSaveAddress} className="mb-8 p-6 border rounded-xl bg-slate-50">
+                    <h3 className="font-bold text-slate-800 mb-4">
+                      {editingAddressId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
+                    </h3>
+
+                    {addressMessage.text && (
+                      <div
+                        className={`mb-4 p-3 rounded-lg flex items-center gap-2 text-sm font-medium ${
+                          addressMessage.type === 'success'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-rose-50 text-rose-700'
+                        }`}
+                      >
+                        {addressMessage.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                        {addressMessage.text}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Tên người nhận *</label>
+                        <input
+                          type="text"
+                          value={addressForm.receiver_name}
+                          onChange={(e) => setAddressForm({ ...addressForm, receiver_name: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Số điện thoại *</label>
+                        <input
+                          type="tel"
+                          value={addressForm.phone}
+                          onChange={(e) => setAddressForm({ ...addressForm, phone: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Tỉnh/Thành phố *</label>
+                        <select
+                          value={addressForm.province}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAddressForm({ ...addressForm, province: val, district: '', ward: '' });
+                            fetchDistricts(val);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+                          required
+                        >
+                          <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                          {provinces.map((p) => (
+                            <option key={p.code} value={p.name}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Quận/Huyện *</label>
+                        <select
+                          value={addressForm.district}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAddressForm({ ...addressForm, district: val, ward: '' });
+                            fetchWards(val);
+                          }}
+                          disabled={!addressForm.province || loadingDistricts}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100"
+                          required
+                        >
+                          <option value="">{loadingDistricts ? 'Đang tải...' : '-- Chọn Quận/Huyện --'}</option>
+                          {districts.map((d) => (
+                            <option key={d.code} value={d.name}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Phường/Xã *</label>
+                        <select
+                          value={addressForm.ward}
+                          onChange={(e) => setAddressForm({ ...addressForm, ward: e.target.value })}
+                          disabled={!addressForm.district || loadingWards}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100"
+                          required
+                        >
+                          <option value="">{loadingWards ? 'Đang tải...' : '-- Chọn Phường/Xã --'}</option>
+                          {wards.map((w) => (
+                            <option key={w.code} value={w.name}>{w.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">Tên đường/Số nhà *</label>
+                        <input
+                          type="text"
+                          value={addressForm.street}
+                          onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-6">
+                      {/* Address type */}
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm font-medium text-slate-700">Loại địa chỉ:</label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="addrType"
+                            value="home"
+                            checked={addressForm.address_type === 'home'}
+                            onChange={() => setAddressForm({ ...addressForm, address_type: 'home' })}
+                            className="accent-indigo-600"
+                          />
+                          <Home size={16} className="text-slate-500" />
+                          <span className="text-sm text-slate-600">Nhà riêng</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="addrType"
+                            value="office"
+                            checked={addressForm.address_type === 'office'}
+                            onChange={() => setAddressForm({ ...addressForm, address_type: 'office' })}
+                            className="accent-indigo-600"
+                          />
+                          <Building2 size={16} className="text-slate-500" />
+                          <span className="text-sm text-slate-600">Văn phòng</span>
+                        </label>
+                      </div>
+
+                      {/* Default checkbox */}
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={addressForm.is_default}
+                          onChange={(e) => setAddressForm({ ...addressForm, is_default: e.target.checked })}
+                          className="accent-indigo-600 w-4 h-4"
+                        />
+                        <span className="text-sm text-slate-600">Đặt làm địa chỉ mặc định</span>
+                      </label>
+                    </div>
+
+                    <div className="mt-5 flex gap-3">
+                      <button
+                        type="submit"
+                        disabled={isSavingAddr}
+                        className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-70"
+                      >
+                        {isSavingAddr ? 'ĐANG LƯU...' : 'Lưu'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={closeAddressForm}
+                        className="px-5 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
+                      >
+                        Hủy
+                      </button>
+                      {editingAddressId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (editingAddressId) {
+                              handleDeleteAddress(editingAddressId);
+                              closeAddressForm();
+                            }
+                          }}
+                          className="px-5 py-2 ml-auto border border-rose-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50"
+                        >
+                          <Trash2 size={16} className="inline mr-1" /> Xóa
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+
+                {/* Address list */}
+                {addressLoading ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+                  </div>
+                ) : addresses.length === 0 && !showAddressForm ? (
+                  <div className="text-center py-12">
+                    <MapPin className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                    <p className="text-slate-500 font-medium">Chưa có địa chỉ nào.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr.address_id}
+                        className="border rounded-xl p-4 hover:border-indigo-200 transition-colors cursor-pointer relative"
+                        onClick={() => openEditForm(addr)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5">
+                            {addr.address_type === 'office' ? (
+                              <Building2 size={18} className="text-slate-400" />
+                            ) : (
+                              <Home size={18} className="text-slate-400" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-bold text-slate-900">{addr.receiver_name}</span>
+                              <span className="text-slate-400">|</span>
+                              <span className="text-slate-600 text-sm">{addr.phone}</span>
+                              {addr.is_default && (
+                                <span className="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded">
+                                  Mặc định
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-slate-500">
+                              {addr.street}, {addr.ward}, {addr.district}, {addr.province}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => openEditForm(addr)}
+                              className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50"
+                              title="Sửa"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAddress(addr.address_id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-50"
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
