@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../components/Toast';
-import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ZoomIn, X, ChevronLeft, ChevronRight, Images, ChevronDown, ChevronUp} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
 
@@ -11,6 +11,7 @@ interface Book {
     title: string;
     price: string | number;
     cover_url: string | null;
+    extra_images?: string[] | null;
     category?: string;
     categories?: { category_id: string; name: string; parent?: { name: string } }[];
     author?: string;
@@ -23,6 +24,199 @@ interface Book {
     page_count?: number;
     publish_year?: number;
     language?: string;
+}
+
+// ─── Product Gallery Component ────────────────────────────────────────────────
+
+function ProductGallery({ cover_url, extra_images, title }: {
+    cover_url: string | null;
+    extra_images?: string[] | null;
+    title: string;
+}) {
+    // Build full image list: cover + extras
+    const allImages: string[] = [
+        cover_url || 'https://placehold.co/400x600',
+        ...((extra_images && Array.isArray(extra_images)) ? extra_images.filter(Boolean) : []),
+    ];
+
+    const [activeIdx, setActiveIdx] = useState(0);
+    const [lightboxOpen, setLightboxOpen] = useState(false);
+    const [lightboxIdx, setLightboxIdx] = useState(0);
+
+    const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
+    const closeLightbox = useCallback(() => setLightboxOpen(false), []);
+    const lbPrev = useCallback(() => setLightboxIdx(i => (i - 1 + allImages.length) % allImages.length), [allImages.length]);
+    const lbNext = useCallback(() => setLightboxIdx(i => (i + 1) % allImages.length), [allImages.length]);
+
+    // Keyboard nav for lightbox
+    useEffect(() => {
+        if (!lightboxOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') closeLightbox();
+            if (e.key === 'ArrowLeft') lbPrev();
+            if (e.key === 'ArrowRight') lbNext();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [lightboxOpen, closeLightbox, lbPrev, lbNext]);
+
+    return (
+        <div className="w-full">
+            {/* Main Image */}
+            <div
+                className="relative rounded-2xl overflow-hidden bg-white border border-slate-100 shadow-sm cursor-zoom-in group"
+                onClick={() => openLightbox(activeIdx)}
+            >
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={activeIdx}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex items-center justify-center p-6 aspect-3/4"
+                    >
+                        <SafeImage
+                            src={allImages[activeIdx]}
+                            alt={`${title} - ảnh ${activeIdx + 1}`}
+                            className="w-full h-full object-contain mix-blend-multiply"
+                        />
+                    </motion.div>
+                </AnimatePresence>
+
+                {/* Zoom hint */}
+                <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow">
+                    <ZoomIn className="w-4 h-4 text-slate-600" />
+                </div>
+
+                {/* Image counter badge */}
+                {allImages.length > 1 && (
+                    <div className="absolute bottom-3 left-3 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm flex items-center gap-1">
+                        <Images className="w-3 h-3" />
+                        {activeIdx + 1} / {allImages.length}
+                    </div>
+                )}
+            </div>
+
+            {/* Thumbnail Strip */}
+            {allImages.length > 1 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    {allImages.map((img, i) => (
+                        <button
+                            key={i}
+                            onClick={() => setActiveIdx(i)}
+                            className={`shrink-0 w-16 h-20 rounded-xl overflow-hidden border-2 transition-all duration-200 bg-white ${i === activeIdx
+                                    ? 'border-indigo-500 shadow-md shadow-indigo-100 scale-105'
+                                    : 'border-slate-200 opacity-60 hover:opacity-100 hover:border-slate-400'
+                                }`}
+                            aria-label={`Xem ảnh ${i + 1}`}
+                        >
+                            <SafeImage
+                                src={img}
+                                alt={`Thumbnail ${i + 1}`}
+                                className="w-full h-full object-contain p-1 mix-blend-multiply"
+                            />
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Lightbox */}
+            <AnimatePresence>
+                {lightboxOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-9999 bg-black/90 backdrop-blur-md flex items-center justify-center"
+                        onClick={closeLightbox}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={closeLightbox}
+                            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+                            aria-label="Đóng"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+
+                        {/* Prev */}
+                        {allImages.length > 1 && (
+                            <button
+                                onClick={e => { e.stopPropagation(); lbPrev(); }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+                                aria-label="Ảnh trước"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                        )}
+
+                        {/* Image */}
+                        <motion.div
+                            key={lightboxIdx}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="max-w-2xl max-h-[80vh] w-full px-16"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <SafeImage
+                                src={allImages[lightboxIdx]}
+                                alt={`${title} - ảnh ${lightboxIdx + 1}`}
+                                className="w-full h-full object-contain max-h-[80vh] rounded-xl"
+                            />
+                        </motion.div>
+
+                        {/* Next */}
+                        {allImages.length > 1 && (
+                            <button
+                                onClick={e => { e.stopPropagation(); lbNext(); }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
+                                aria-label="Ảnh tiếp"
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
+                        )}
+
+                        {/* Dots */}
+                        {allImages.length > 1 && (
+                            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2">
+                                {allImages.map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={e => { e.stopPropagation(); setLightboxIdx(i); }}
+                                        className="h-2 rounded-full transition-all duration-300"
+                                        style={{
+                                            width: i === lightboxIdx ? '24px' : '8px',
+                                            background: i === lightboxIdx ? 'white' : 'rgba(255,255,255,0.3)',
+                                        }}
+                                        aria-label={`Ảnh ${i + 1}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Thumbnail strip in lightbox */}
+                        {allImages.length > 1 && (
+                            <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-2 px-4 max-w-full overflow-x-auto no-scrollbar">
+                                {allImages.map((img, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={e => { e.stopPropagation(); setLightboxIdx(i); }}
+                                        className={`shrink-0 w-12 h-16 rounded-lg overflow-hidden border-2 transition-all ${i === lightboxIdx ? 'border-white scale-110' : 'border-white/30 opacity-50 hover:opacity-80'
+                                            }`}
+                                    >
+                                        <SafeImage src={img} alt={`Thumb ${i + 1}`} className="w-full h-full object-contain bg-white/10 p-0.5" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 }
 
 interface Review {
@@ -169,15 +363,13 @@ export function BookDetail() {
 
                     <motion.div
                         initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-                        className="md:col-span-5 lg:col-span-4 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex items-start justify-center self-start sticky top-28"
+                        className="md:col-span-5 lg:col-span-4 bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-100 self-start sticky top-28"
                     >
-                        <div className="relative w-full max-w-[280px] mx-auto">
-                            <SafeImage
-                                src={book.cover_url || 'https://placehold.co/300x450'}
-                                alt={book.title}
-                                className="w-full h-auto object-cover rounded shadow-lg aspect-2/3"
-                            />
-                        </div>
+                        <ProductGallery
+                            cover_url={book.cover_url}
+                            extra_images={book.extra_images}
+                            title={book.title}
+                        />
                     </motion.div>
 
 

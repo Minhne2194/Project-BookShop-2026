@@ -97,6 +97,7 @@ type BookFormState = {
     stock_qty: string;
     cover_url: string;
     description: string;
+    extra_images: string[];
 };
 
 type AuthorFormState = {
@@ -135,6 +136,7 @@ const EMPTY_BOOK_FORM: BookFormState = {
     stock_qty: '',
     cover_url: '',
     description: '',
+    extra_images: [],
 };
 
 const EMPTY_AUTHOR_FORM: AuthorFormState = {
@@ -508,7 +510,7 @@ export function Admin() {
         setShowBookModal(true);
     };
 
-    const openEditBookForm = (book: Book) => {
+    const openEditBookForm = (book: Book & { extra_images?: string[] }) => {
         setEditingBookId(book.book_id);
         setBookForm({
             title: book.title || '',
@@ -517,6 +519,7 @@ export function Admin() {
             stock_qty: String(book.stock_qty ?? ''),
             cover_url: book.cover_url || '',
             description: book.description || '',
+            extra_images: Array.isArray(book.extra_images) ? book.extra_images : [],
         });
         setShowBookModal(true);
     };
@@ -569,6 +572,7 @@ export function Admin() {
                     ...bookForm,
                     price: Number(bookForm.price),
                     stock_qty: Number(bookForm.stock_qty),
+                    extra_images: bookForm.extra_images.filter(Boolean),
                 }),
             });
             if (!res.ok) return;
@@ -1256,14 +1260,14 @@ export function Admin() {
 
             {showBookModal ? (
                 <div className="fixed inset-0 z-50 bg-slate-900/40 flex justify-center items-center p-4">
-                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl">
+                    <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
                         <div className="p-6 border-b flex justify-between">
                             <h3 className="text-xl font-bold text-slate-800">{editingBookId ? 'Chỉnh sửa sách' : 'Thêm sách mới'}</h3>
                             <button onClick={() => setShowBookModal(false)} className="text-slate-400 hover:text-rose-500">
                                 <X size={20} />
                             </button>
                         </div>
-                        <form onSubmit={handleBookSubmit} className="p-6 space-y-4">
+                        <form onSubmit={handleBookSubmit} className="p-6 space-y-4 overflow-y-auto">
                             <input required value={bookForm.title} onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })} placeholder="Tên sách" className="w-full border border-slate-200 p-3 rounded-xl" />
                             <input required value={bookForm.slug} onChange={(e) => setBookForm({ ...bookForm, slug: e.target.value })} placeholder="Slug" className="w-full border border-slate-200 p-3 rounded-xl" />
                             <div className="grid grid-cols-2 gap-4">
@@ -1285,6 +1289,85 @@ export function Admin() {
                                 </div>
                             </div>
                             <textarea rows={4} value={bookForm.description} onChange={(e) => setBookForm({ ...bookForm, description: e.target.value })} placeholder="Mô tả" className="w-full border border-slate-200 p-3 rounded-xl" />
+
+                            {/* ─── Extra Images Gallery Manager ─── */}
+                            <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-slate-700">🖼 Ảnh phụ (Gallery)</span>
+                                    <span className="text-xs text-slate-400">{bookForm.extra_images.length} ảnh</span>
+                                </div>
+
+                                {/* Existing images */}
+                                {bookForm.extra_images.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {bookForm.extra_images.map((url, idx) => (
+                                            <div key={idx} className="relative group w-16 h-20">
+                                                <img
+                                                    src={url.startsWith('http') ? url : `${API_URL}${url}`}
+                                                    alt={`Extra ${idx + 1}`}
+                                                    className="w-full h-full object-cover rounded-lg border border-slate-200"
+                                                    onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/64x80?text=?'; }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setBookForm(prev => ({
+                                                        ...prev,
+                                                        extra_images: prev.extra_images.filter((_, i) => i !== idx)
+                                                    }))}
+                                                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-rose-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                                                    title="Xóa ảnh này"
+                                                >
+                                                    <X size={10} />
+                                                </button>
+                                                <span className="absolute bottom-0.5 left-0.5 bg-black/50 text-white text-[9px] rounded px-0.5">{idx + 1}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Add URL input */}
+                                <div className="flex gap-2">
+                                    <input
+                                        type="url"
+                                        id="extra-image-url-input"
+                                        placeholder="Dán URL ảnh phụ vào đây..."
+                                        className="flex-1 border border-slate-200 p-2.5 rounded-xl text-sm"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const input = e.target as HTMLInputElement;
+                                                const url = input.value.trim();
+                                                if (url) {
+                                                    setBookForm(prev => ({
+                                                        ...prev,
+                                                        extra_images: [...prev.extra_images, url]
+                                                    }));
+                                                    input.value = '';
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const input = document.getElementById('extra-image-url-input') as HTMLInputElement;
+                                            const url = input?.value.trim();
+                                            if (url) {
+                                                setBookForm(prev => ({
+                                                    ...prev,
+                                                    extra_images: [...prev.extra_images, url]
+                                                }));
+                                                input.value = '';
+                                            }
+                                        }}
+                                        className="px-4 py-2.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-sm font-medium transition-colors flex items-center gap-1"
+                                    >
+                                        <Plus size={16} /> Thêm
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-400">Nhấn Enter hoặc bấm Thêm để thêm URL. Hover vào ảnh để xóa.</p>
+                            </div>
+
                             <div className="flex justify-end gap-3">
                                 <button type="button" onClick={() => setShowBookModal(false)} className="px-5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
                                 <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold">{editingBookId ? 'Cập nhật' : 'Thêm mới'}</button>

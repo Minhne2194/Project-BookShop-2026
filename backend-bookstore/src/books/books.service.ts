@@ -242,6 +242,7 @@ export class BooksService {
         stock_qty: bookData.stock_qty,
         description: bookData.description,
         cover_url: bookData.cover_url,
+        extra_images: bookData.extra_images !== undefined ? bookData.extra_images : undefined,
         language: bookData.language,
         publish_year: bookData.publish_year,
         page_count: bookData.page_count,
