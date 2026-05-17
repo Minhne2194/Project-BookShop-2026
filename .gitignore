@@ -187,3 +187,4 @@ test-results/
 tests/
 tests-examples/
 playwright.config.ts
+*.txt

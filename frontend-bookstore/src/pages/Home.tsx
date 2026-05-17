@@ -4,6 +4,7 @@ import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { SafeImage } from '../components/SafeImage';
+import { PromoBanner } from '../components/PromoBanner';
 
 interface Book {
   description: string;
@@ -86,6 +87,9 @@ export function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* ── Banner Quảng Cáo & Khuyến Mãi ── */}
+      <PromoBanner />
 
       <section className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid md:grid-cols-2 gap-11 mb-11">
