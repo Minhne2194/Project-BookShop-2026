@@ -9,12 +9,13 @@ export class OrdersService {
   private readonly validOrderStatuses = new Set(Object.values(OrderStatus));
 
   constructor(private prisma: PrismaService) {
-    this.redis = new Redis({
-      host: process.env.REDIS_HOST || '127.0.0.1',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD || undefined,
-      tls: process.env.NODE_ENV === 'production' ? {} : undefined,
-    });
+    this.redis = process.env.REDIS_URL
+      ? new Redis(process.env.REDIS_URL)
+      : new Redis({
+          host: process.env.REDIS_HOST || '127.0.0.1',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          password: process.env.REDIS_PASSWORD || undefined,
+        });
   }
 
   private normalizePaymentMethod(paymentMethod?: string): PaymentMethod {
