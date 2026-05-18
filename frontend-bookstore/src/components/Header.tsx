@@ -15,11 +15,20 @@ interface Category {
   sort_order: number;
 }
 
+interface SearchSuggestion {
+  book_id: string;
+  title: string;
+  author?: string;
+  price?: string | number;
+}
+
 export function Header() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const navigate = useNavigate();
 
   const { token, setToken, cartCount } = useCart();
@@ -34,6 +43,42 @@ export function Header() {
       .catch(err => console.error('Lỗi tải danh mục:', err));
   }, []);
 
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      setIsSuggesting(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setIsSuggesting(true);
+      try {
+        const res = await fetch(`${API}/search/suggest?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setSuggestions([]);
+          return;
+        }
+        const json = await res.json();
+        setSuggestions(Array.isArray(json.data) ? json.data : []);
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Loi goi y tim kiem:', error);
+        }
+      } finally {
+        setIsSuggesting(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
   const topLevelCategories = categories.filter(c => c.level === 2);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -42,13 +87,54 @@ export function Header() {
       navigate(`/search?q=${encodeURIComponent(searchQuery)}`);
       setIsSearchOpen(false);
       setSearchQuery('');
+      setSuggestions([]);
     }
+  };
+
+  const handleSuggestionClick = (suggestion: SearchSuggestion) => {
+    navigate(`/book/${suggestion.book_id}`);
+    setIsSearchOpen(false);
+    setSearchQuery('');
+    setSuggestions([]);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setToken(null);
     navigate('/');
+  };
+
+  const formatPrice = (price?: string | number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price || 0));
+  };
+
+  const renderSuggestions = () => {
+    const query = searchQuery.trim();
+    if (query.length < 2 || (!isSuggesting && suggestions.length === 0)) return null;
+
+    return (
+      <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+        {isSuggesting && suggestions.length === 0 ? (
+          <div className="px-4 py-3 text-sm text-slate-500">Äang tÃ¬m...</div>
+        ) : (
+          suggestions.map((suggestion) => (
+            <button
+              key={suggestion.book_id}
+              type="button"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors border-b border-slate-100 last:border-0"
+            >
+              <span className="block text-sm font-semibold text-slate-900 line-clamp-1">{suggestion.title}</span>
+              <span className="mt-0.5 flex items-center justify-between gap-3 text-xs text-slate-500">
+                <span className="line-clamp-1">{suggestion.author || 'Khuyáº¿t danh'}</span>
+                <span className="font-bold text-indigo-600 whitespace-nowrap">{formatPrice(suggestion.price)}</span>
+              </span>
+            </button>
+          ))
+        )}
+      </div>
+    );
   };
 
   return (
@@ -80,6 +166,7 @@ export function Header() {
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-indigo-600 transition-colors rounded-full">
               <Search className="w-4 h-4" />
             </button>
+            {renderSuggestions()}
           </form>
         </div>
 
@@ -170,6 +257,7 @@ export function Header() {
                 <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors">
                   Tìm
                 </button>
+                {renderSuggestions()}
               </form>
             </div>
           </motion.div>

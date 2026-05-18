@@ -14,6 +14,11 @@ interface Book {
     price: string | number;
     cover_url: string | null;
     category?: string;
+    highlights?: {
+        title?: string;
+        author?: string;
+        description?: string;
+    };
 }
 
 interface Category {
@@ -27,6 +32,18 @@ interface Category {
 interface CategoryTreeNode extends Category {
     children: CategoryTreeNode[];
 }
+
+type SearchFacets = {
+    categories: { id: string; slug: string; name: string; count: number }[];
+    priceRanges: { key: string; from?: number; to?: number; count: number }[];
+    ratings: { key: string; from: number; count: number }[];
+};
+
+const EMPTY_FACETS: SearchFacets = {
+    categories: [],
+    priceRanges: [],
+    ratings: [],
+};
 
 export function Search() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +67,8 @@ export function Search() {
     const [customMin, setCustomMin] = useState('');
     const [customMax, setCustomMax] = useState('');
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+    const [facets, setFacets] = useState<SearchFacets>(EMPTY_FACETS);
+    const [correction, setCorrection] = useState<string | null>(null);
 
     const filterRef = useRef<HTMLDivElement>(null);
     const { handleAddToCart } = useCart();
@@ -135,7 +154,7 @@ export function Search() {
         if (maxPrice) params.set('maxPrice', maxPrice);
         if (rating) params.set('rating', rating);
         if (lang) params.set('lang', lang);
-        return `${API}/books?${params.toString()}`;
+        return `${API}/search/full?${params.toString()}`;
     };
 
     const fetchBooks = async (pageNum: number, reset = false) => {
@@ -150,10 +169,18 @@ export function Search() {
                 setBooks((prev) => (reset ? json.data : [...prev, ...json.data]));
                 setHasMore(pageNum < json.meta.totalPages);
                 setTotalResults(json.meta.total);
+                if (reset) {
+                    setFacets(json.facets || EMPTY_FACETS);
+                    setCorrection(json.correction || null);
+                }
             } else {
                 setBooks((prev) => (reset ? json : [...prev, ...json]));
                 setHasMore(false);
                 setTotalResults(json.length);
+                if (reset) {
+                    setFacets(EMPTY_FACETS);
+                    setCorrection(null);
+                }
             }
         } catch (err) {
             console.error('Loi tai sach:', err);
@@ -166,7 +193,7 @@ export function Search() {
     useEffect(() => {
         fetchBooks(1, true);
         setPage(1);
-    }, [query, selectedCategory, sortOrder, minPrice, maxPrice, rating]);
+    }, [query, selectedCategory, sortOrder, minPrice, maxPrice, rating, lang]);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -218,6 +245,8 @@ export function Search() {
         else nextParams.delete('maxPrice');
         if (rating) nextParams.set('rating', rating);
         else nextParams.delete('rating');
+        if (lang) nextParams.set('lang', lang);
+        else nextParams.delete('lang');
         setSearchParams(nextParams);
         setIsFilterOpen(false);
     };
@@ -226,12 +255,14 @@ export function Search() {
         setMinPrice('');
         setMaxPrice('');
         setRating('');
+        setLang('');
         setCustomMin('');
         setCustomMax('');
         const nextParams = new URLSearchParams(searchParams);
         nextParams.delete('minPrice');
         nextParams.delete('maxPrice');
         nextParams.delete('rating');
+        nextParams.delete('lang');
         setSearchParams(nextParams);
         setIsFilterOpen(false);
     };
@@ -263,9 +294,16 @@ export function Search() {
         return sortNodes(Array.from(nodes.values()).filter((node) => !node.parent_id));
     };
 
+    const getCategoryFacetCount = (category: Category) => {
+        return facets.categories.find((facet) =>
+            facet.id === category.category_id || facet.slug === category.slug || facet.name === category.name
+        )?.count;
+    };
+
     const renderCategoryNode = (category: CategoryTreeNode, depth = 0) => {
         const hasChildren = category.children.length > 0;
         const isExpanded = expandedGroups[category.category_id] ?? true;
+        const count = getCategoryFacetCount(category);
 
         return (
             <div key={category.category_id} className={depth === 0 ? 'border-b border-slate-100 pb-2 last:border-0' : ''}>
@@ -292,7 +330,10 @@ export function Search() {
                                 : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
                         }`}
                     >
-                        {category.name}
+                        <span className="flex items-center justify-between gap-2">
+                            <span className="truncate">{category.name}</span>
+                            {count !== undefined ? <span className="text-xs text-slate-400">{count}</span> : null}
+                        </span>
                     </button>
                 </div>
 
@@ -312,7 +353,38 @@ export function Search() {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
     };
 
-    const hasActiveFilters = minPrice || maxPrice || rating;
+    const priceFacetCount = (min: string, max: string) => {
+        const key = !min && max === '50000'
+            ? 'under_50'
+            : min === '50000' && max === '100000'
+                ? '50_100'
+                : min === '100000' && max === '200000'
+                    ? '100_200'
+                    : min === '200000' && !max
+                        ? 'over_200'
+                        : '';
+        return facets.priceRanges.find((facet) => facet.key === key)?.count;
+    };
+
+    const ratingFacetCount = (value: string) => {
+        return facets.ratings.find((facet) => facet.key === `rating_${value}`)?.count;
+    };
+
+    const renderHighlightedText = (highlight?: string, fallback = '') => {
+        if (!highlight) return fallback;
+        return highlight.split(/(<mark>.*?<\/mark>)/g).map((part, index) => {
+            if (part.startsWith('<mark>') && part.endsWith('</mark>')) {
+                return (
+                    <mark key={index} className="bg-amber-100 text-slate-900 rounded px-0.5">
+                        {part.replace(/<\/?mark>/g, '')}
+                    </mark>
+                );
+            }
+            return part;
+        });
+    };
+
+    const hasActiveFilters = minPrice || maxPrice || rating || lang;
 
     return (
         <div className="bg-slate-50 min-h-screen py-8">
@@ -323,6 +395,15 @@ export function Search() {
                             {query ? `Kết quả tìm kiếm cho: "${query}"` : 'Tất cả sách'}
                         </h1>
                         <p className="text-slate-500">Hiển thị {filteredBooks.length} / {totalResults} kết quả</p>
+                        {correction ? (
+                            <button
+                                type="button"
+                                onClick={() => setSearchParams({ q: correction })}
+                                className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                            >
+                                Bạn có phải ý là "{correction}"?
+                            </button>
+                        ) : null}
                     </div>
 
                     <div className="flex gap-2 w-full md:w-auto">
@@ -391,7 +472,12 @@ export function Search() {
                                                     onChange={() => handlePriceRangeChange(range.min, range.max)}
                                                     className="accent-indigo-600 w-4 h-4"
                                                 />
-                                                {range.label}
+                                                <span className="flex flex-1 items-center justify-between gap-2">
+                                                    <span>{range.label}</span>
+                                                    {priceFacetCount(range.min, range.max) !== undefined ? (
+                                                        <span className="text-xs text-slate-400">{priceFacetCount(range.min, range.max)}</span>
+                                                    ) : null}
+                                                </span>
                                             </label>
                                         ))}
                                     </div>
@@ -451,6 +537,9 @@ export function Search() {
                                                         </svg>
                                                     ))}
                                                     <span className="ml-1">{item.label}</span>
+                                                    {ratingFacetCount(item.value) !== undefined ? (
+                                                        <span className="ml-auto text-xs text-slate-400">{ratingFacetCount(item.value)}</span>
+                                                    ) : null}
                                                 </span>
                                             </label>
                                         ))}
@@ -585,7 +674,12 @@ export function Search() {
                                         onChange={() => handlePriceRangeChange(range.min, range.max)}
                                         className="accent-indigo-600 w-4 h-4"
                                     />
-                                    {range.label}
+                                    <span className="flex flex-1 items-center justify-between gap-2">
+                                        <span>{range.label}</span>
+                                        {priceFacetCount(range.min, range.max) !== undefined ? (
+                                            <span className="text-xs text-slate-400">{priceFacetCount(range.min, range.max)}</span>
+                                        ) : null}
+                                    </span>
                                 </label>
                             ))}
                         </div>
@@ -620,6 +714,9 @@ export function Search() {
                                             </svg>
                                         ))}
                                         <span className="ml-1">{item.label}</span>
+                                        {ratingFacetCount(item.value) !== undefined ? (
+                                            <span className="ml-auto text-xs text-slate-400">{ratingFacetCount(item.value)}</span>
+                                        ) : null}
                                     </span>
                                 </label>
                             ))}
@@ -652,9 +749,14 @@ export function Search() {
                                         <div className="flex flex-col grow">
                                             <Link to={`/book/${book.book_id}`}>
                                                 <h3 className="font-semibold text-slate-900 line-clamp-2 hover:text-indigo-600 transition-colors">
-                                                    {book.title}
+                                                    {renderHighlightedText(book.highlights?.title, book.title)}
                                                 </h3>
                                             </Link>
+                                            {book.author ? (
+                                                <p className="text-sm text-slate-500 line-clamp-1 mt-1">
+                                                    {renderHighlightedText(book.highlights?.author, book.author)}
+                                                </p>
+                                            ) : null}
                                             <p className="text-indigo-600 font-bold mt-auto pt-3 text-lg">
                                                 {formatPrice(book.price)}
                                             </p>

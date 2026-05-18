@@ -12,6 +12,7 @@ import {
     LogOut,
     Package,
     Plus,
+    RefreshCw,
     ShoppingBag,
     Star,
     TrendingUp,
@@ -166,6 +167,8 @@ export function Admin() {
     const [error, setError] = useState('');
     const [isLoggingIn, setIsLoggingIn] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [reindexing, setReindexing] = useState(false);
+    const [reindexStatus, setReindexStatus] = useState<string | null>(null);
 
     const [orders, setOrders] = useState<Order[]>([]);
     const [books, setBooks] = useState<Book[]>([]);
@@ -227,6 +230,30 @@ export function Admin() {
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price || 0));
 
     const getToken = () => localStorage.getItem('adminToken');
+
+    const handleRebuildSearchIndex = async () => {
+        const token = getToken();
+        if (!token) return;
+        setReindexing(true);
+        setReindexStatus(null);
+        try {
+            const res = await fetch(`${API_URL}/search/reindex`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setReindexStatus(data.message || 'Không thể rebuild search index.');
+                return;
+            }
+            setReindexStatus(`Đã index ${data.indexed} sách vào ${data.index}.`);
+        } catch (error) {
+            console.error(error);
+            setReindexStatus('Không thể kết nối Elasticsearch.');
+        } finally {
+            setReindexing(false);
+        }
+    };
 
     const fetchBooksList = async () => {
         try {
@@ -859,6 +886,23 @@ export function Admin() {
                                     <p className="text-2xl font-bold text-slate-800">{stats?.totalUsers ?? 0}</p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="bg-white rounded-2xl border p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Search index</h2>
+                                <p className="text-sm text-slate-500">Đồng bộ lại Elasticsearch sau khi import hoặc chỉnh sửa nhiều sách.</p>
+                                {reindexStatus ? <p className="text-sm text-indigo-600 mt-2">{reindexStatus}</p> : null}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleRebuildSearchIndex}
+                                disabled={reindexing}
+                                className="px-4 py-2 rounded-xl bg-slate-900 text-white font-semibold hover:bg-indigo-600 disabled:opacity-60 flex items-center justify-center gap-2"
+                            >
+                                <RefreshCw size={18} className={reindexing ? 'animate-spin' : ''} />
+                                {reindexing ? 'Đang rebuild...' : 'Rebuild Search Index'}
+                            </button>
                         </div>
 
                         {/* Revenue Chart */}

@@ -98,8 +98,6 @@ export function Account() {
   const [wards, setWards] = useState<LocationOption[]>([]);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
-  const [selectedProvince, setSelectedProvince] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('');
 
   // Fetch provinces once
   useEffect(() => {

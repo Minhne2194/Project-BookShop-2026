@@ -14,6 +14,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentModule } from './payment/payment.module';
 import { UploadModule } from './upload/upload.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UploadModule } from './upload/upload.module';
     AdminModule,
     PaymentModule,
     UploadModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

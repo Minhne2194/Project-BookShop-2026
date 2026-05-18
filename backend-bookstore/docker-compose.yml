@@ -21,5 +21,19 @@ services:
     ports:
       - "6379:6379"
 
+  elasticsearch:
+    image: elasticsearch:8.15.0
+    container_name: bookstore_elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+
 volumes:
   pgdata:
+  esdata:

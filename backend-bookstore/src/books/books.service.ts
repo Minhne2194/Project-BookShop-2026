@@ -1,9 +1,13 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class BooksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private searchService: SearchService,
+  ) {}
 
   async create(data: any) {
     const { author_ids, category_ids, is_primary_category, ...bookData } = data;
@@ -49,6 +53,8 @@ export class BooksService {
       });
     }
 
+    await this.searchService.indexBook(book.book_id);
+
     return this.findOne(book.book_id);
   }
 
@@ -67,6 +73,10 @@ export class BooksService {
       rating?: number;
     } = {},
   ) {
+    if (filters.q?.trim()) {
+      return this.searchService.search({ ...filters, page, limit });
+    }
+
     const skip = (page - 1) * limit;
     const where: any = { is_active: true };
 
@@ -157,46 +167,7 @@ export class BooksService {
   }
 
   async search(q: string) {
-    if (!q?.trim()) return { data: [], meta: { total: 0 } };
-    const normalizedQuery = q.trim().replace(/\s+/g, ' ');
-    const terms = normalizedQuery
-      .split(' ')
-      .map((term) => term.trim())
-      .filter(Boolean)
-      .slice(0, 8);
-
-    const books = await this.prisma.book.findMany({
-      where: {
-        is_active: true,
-        AND: terms.map((term) => ({
-          OR: [
-            { title: { contains: term, mode: 'insensitive' } },
-            { description: { contains: term, mode: 'insensitive' } },
-            {
-              book_authors: {
-                some: {
-                  author: { name: { contains: term, mode: 'insensitive' } },
-                },
-              },
-            },
-          ],
-        })),
-      },
-      take: 50,
-      include: {
-        book_categories: {
-          include: { category: { include: { parent: true } } },
-        },
-        book_authors: { include: { author: true } },
-        publisher: true,
-      },
-      orderBy: { sold_count: 'desc' },
-    });
-
-    return {
-      data: books.map((b) => this.formatBook(b)),
-      meta: { total: books.length },
-    };
+    return this.searchService.suggest(q);
   }
 
   async findBySlug(slug: string) {
@@ -276,12 +247,15 @@ export class BooksService {
       }
     }
 
+    await this.searchService.indexBook(id);
+
     return this.findOne(id);
   }
 
   async remove(id: string) {
     try {
       await this.prisma.book.delete({ where: { book_id: id } });
+      await this.searchService.removeBook(id);
       return { message: 'Xóa sách thành công!' };
     } catch (error: any) {
       if (error.code === 'P2003') {
