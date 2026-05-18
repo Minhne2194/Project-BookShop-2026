@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../components/Toast';
-import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ZoomIn, X, ChevronLeft, ChevronRight, Images, ChevronDown, ChevronUp} from 'lucide-react';
+import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ZoomIn, X, ChevronLeft, ChevronRight, Images, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
 
@@ -247,6 +247,15 @@ const StarRating = ({ value, onChange }: { value: number; onChange?: (v: number)
     </div>
 );
 
+interface SimilarBook {
+    book_id: string;
+    title: string;
+    price: number;
+    cover_url: string | null;
+    avg_rating: number;
+    author: string;
+}
+
 export function BookDetail() {
     const { bookId } = useParams<{ bookId: string }>();
     const [book, setBook] = useState<Book | null>(null);
@@ -256,6 +265,8 @@ export function BookDetail() {
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [reviewPage, setReviewPage] = useState(1);
     const [reviewTotal, setReviewTotal] = useState(0);
+    const [similarBooks, setSimilarBooks] = useState<SimilarBook[]>([]);
+    const similarScrollRef = useRef<HTMLDivElement>(null);
 
     const [isDescExpanded, setIsDescExpanded] = useState(true);
 
@@ -266,7 +277,7 @@ export function BookDetail() {
     const [submitting, setSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
-    const { token, fetchCart } = useCart();
+    const { token, fetchCart, handleAddToCart: handleAddToCartGlobal } = useCart();
     const { toast } = useToast();
 
 
@@ -279,6 +290,29 @@ export function BookDetail() {
             .catch(() => setLoading(false));
     }, [bookId]);
 
+    // ── Behavior Tracking: ghi nhận view sau 3 giây ──
+    useEffect(() => {
+        if (!bookId) return;
+        const timer = setTimeout(() => {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            fetch(`${API}/behavior/track`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ event_type: 'view', book_id: bookId, duration_sec: 3 }),
+            }).catch(() => {/* non-critical */});
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, [bookId, token]);
+
+    // ── Load similar books ──
+    useEffect(() => {
+        if (!bookId) return;
+        fetch(`${API}/recommendations/similar/${bookId}?limit=8`)
+            .then(r => r.json())
+            .then(data => setSimilarBooks(data.data || []))
+            .catch(() => {});
+    }, [bookId]);
 
     const loadReviews = (page = 1) => {
         if (!bookId) return;
@@ -598,6 +632,63 @@ export function BookDetail() {
                         </div>
                     )}
                 </div>
+
+                {/* ── Sách tương tự ── */}
+                {similarBooks.length > 0 && (
+                    <div className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-slate-900">Sách tương tự</h2>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => similarScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
+                                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                                <button
+                                    onClick={() => similarScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })}
+                                    className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 text-slate-600"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            </div>
+                        </div>
+                        <div ref={similarScrollRef} className="flex overflow-x-auto gap-4 pb-4 snap-x no-scrollbar scroll-smooth">
+                            {similarBooks.map((sb, idx) => (
+                                <div key={`sim-${sb.book_id}-${idx}`} className="w-[150px] md:w-[170px] shrink-0 snap-start bg-white border border-slate-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col group">
+                                    <Link to={`/book/${sb.book_id}`} className="block relative overflow-hidden bg-slate-50 p-3 aspect-2/3">
+                                        <SafeImage
+                                            src={sb.cover_url || 'https://placehold.co/200x300'}
+                                            alt={sb.title}
+                                            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                    </Link>
+                                    <div className="p-3 flex flex-col flex-1">
+                                        <Link to={`/book/${sb.book_id}`}>
+                                            <h3 className="text-xs font-semibold text-slate-900 line-clamp-2 hover:text-indigo-600 transition-colors mb-1">{sb.title}</h3>
+                                        </Link>
+                                        <p className="text-xs text-slate-500 mb-1 truncate">{sb.author}</p>
+                                        {sb.avg_rating > 0 && (
+                                            <div className="flex items-center gap-1 mb-1">
+                                                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                                <span className="text-xs text-slate-600">{Number(sb.avg_rating).toFixed(1)}</span>
+                                            </div>
+                                        )}
+                                        <p className="text-indigo-600 font-bold text-sm mt-auto">
+                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(sb.price)}
+                                        </p>
+                                        <button
+                                            onClick={() => handleAddToCartGlobal(sb.book_id)}
+                                            className="mt-2 w-full bg-slate-900 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <ShoppingCart className="w-3 h-3" /> Thêm vào giỏ
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ArrowRight, Tag, X, CheckCircle2 } from 'lucide-react';
+import { Trash2, ArrowRight, Tag, X, CheckCircle2, Star, ShoppingCart } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
 import { useToast } from '../components/Toast';
@@ -14,11 +14,23 @@ interface Book {
     author?: string;
 }
 
+interface SimilarBook {
+    book_id: string;
+    title: string;
+    price: number;
+    cover_url: string | null;
+    avg_rating: number;
+    author: string;
+}
+
+const API = 'http://localhost:3000';
+
 export function Cart() {
-    const { token, guestId, cartItems, fetchCart } = useCart();
+    const { token, guestId, cartItems, fetchCart, handleAddToCart } = useCart();
     const { toast } = useToast();
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [suggestions, setSuggestions] = useState<SimilarBook[]>([]);
     const navigate = useNavigate();
 
     const [promoCode, setPromoCode] = useState('');
@@ -43,7 +55,7 @@ export function Cart() {
         const ids = cartItems.map(item => item.bookId).join(',');
         
         setLoading(true);
-        fetch(`http://localhost:3000/books?ids=${ids}`)
+        fetch(`${API}/books?ids=${ids}`)
             .then((res) => res.json())
             .then((resData) => {
                 const data = resData.data ? resData.data : resData;
@@ -51,9 +63,32 @@ export function Cart() {
                 setLoading(false);
             })
             .catch((err) => {
-                console.error("Lỗi tải sách:", err);
+                console.error('Lỗi tải sách:', err);
                 setLoading(false);
             });
+    }, [cartItems]);
+
+    // Load similar books for suggestions
+    useEffect(() => {
+        if (cartItems.length === 0) { setSuggestions([]); return; }
+        const bookIds = cartItems.map(i => i.bookId).slice(0, 3); // limit to 3 to avoid too many requests
+        Promise.all(
+            bookIds.map(id =>
+                fetch(`${API}/recommendations/similar/${id}?limit=6`)
+                    .then(r => r.json())
+                    .then(d => d.data || [])
+                    .catch(() => [])
+            )
+        ).then(results => {
+            const cartBookIds = new Set(cartItems.map(i => i.bookId));
+            const merged = new Map<string, SimilarBook>();
+            results.flat().forEach((book: SimilarBook) => {
+                if (!cartBookIds.has(book.book_id) && !merged.has(book.book_id)) {
+                    merged.set(book.book_id, book);
+                }
+            });
+            setSuggestions(Array.from(merged.values()).slice(0, 10));
+        });
     }, [cartItems]);
 
     const cartDetails = useMemo(() => {
@@ -194,6 +229,7 @@ export function Cart() {
     }
 
     return (
+        <>
         <div className="min-h-screen bg-slate-50 py-12">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">Giỏ Hàng</h1>
@@ -325,5 +361,50 @@ export function Cart() {
                 </div>
             </div>
         </div>
+
+            {/* ── Có thể bạn cũng thích ── */}
+            {suggestions.length > 0 && (
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 mb-16">
+                    <h2 className="text-2xl font-serif font-bold text-slate-900 mb-6">Có thể bạn cũng thích</h2>
+                    <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar scroll-smooth">
+                        {suggestions.map((sb, idx) => (
+                            <div
+                                key={`sug-${sb.book_id}-${idx}`}
+                                className="w-[150px] md:w-[170px] shrink-0 bg-white border border-slate-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col group"
+                            >
+                                <Link to={`/book/${sb.book_id}`} className="block relative overflow-hidden bg-slate-50 p-3 aspect-2/3">
+                                    <SafeImage
+                                        src={sb.cover_url || 'https://placehold.co/200x300'}
+                                        alt={sb.title}
+                                        className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                                    />
+                                </Link>
+                                <div className="p-3 flex flex-col flex-1">
+                                    <Link to={`/book/${sb.book_id}`}>
+                                        <h3 className="text-xs font-semibold text-slate-900 line-clamp-2 hover:text-indigo-600 transition-colors mb-1">{sb.title}</h3>
+                                    </Link>
+                                    <p className="text-xs text-slate-500 mb-1 truncate">{sb.author}</p>
+                                    {sb.avg_rating > 0 && (
+                                        <div className="flex items-center gap-1 mb-1">
+                                            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                                            <span className="text-xs text-slate-600">{Number(sb.avg_rating).toFixed(1)}</span>
+                                        </div>
+                                    )}
+                                    <p className="text-indigo-600 font-bold text-sm mt-auto">
+                                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(sb.price)}
+                                    </p>
+                                    <button
+                                        onClick={() => handleAddToCart(sb.book_id)}
+                                        className="mt-2 w-full bg-slate-900 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center justify-center gap-1"
+                                    >
+                                        <ShoppingCart className="w-3 h-3" /> Thêm vào giỏ
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </>
     );
 }

@@ -14,12 +14,12 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentModule } from './payment/payment.module';
 import { UploadModule } from './upload/upload.module';
-<<<<<<< Updated upstream
 import { SearchModule } from './search/search.module';
-=======
 import { BullModule } from '@nestjs/bullmq';
 import { EmailModule } from './email/email.module';
->>>>>>> Stashed changes
+import { RecommendationModule } from './recommendation/recommendation.module';
+import { BehaviorModule } from './behavior/behavior.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -32,6 +32,10 @@ import { EmailModule } from './email/email.module';
       connection: {
         host: process.env.REDIS_HOST || 'localhost',
         port: Number(process.env.REDIS_PORT) || 6379,
+        lazyConnect: true,
+        enableOfflineQueue: false,
+        maxRetriesPerRequest: 0,
+        retryStrategy: () => null, // Don't retry, fail silently
       },
     }),
     EmailModule,
@@ -46,6 +50,9 @@ import { EmailModule } from './email/email.module';
     PaymentModule,
     UploadModule,
     SearchModule,
+    RecommendationModule,
+    BehaviorModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards, Headers, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -23,6 +23,14 @@ export class SearchController {
   @Roles('admin')
   @Post('reindex')
   reindex() {
+    return this.searchService.bulkIndex();
+  }
+
+  /** Dev-only: trigger reindex without JWT — protected by DEV_SECRET env var */
+  @Post('reindex-dev')
+  reindexDev(@Headers('x-dev-secret') secret: string) {
+    const devSecret = process.env.DEV_SECRET || 'dev-reindex-2026';
+    if (secret !== devSecret) throw new ForbiddenException('Invalid dev secret');
     return this.searchService.bulkIndex();
   }
 }

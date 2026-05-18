@@ -563,7 +563,8 @@ export class SearchService implements OnModuleInit {
     const orderBy = this.buildPrismaOrderBy(filters.sort);
     const skip = (page - 1) * limit;
 
-    const [total, books, facetBooks] = await Promise.all([
+    // Run count + page query in parallel (no more 5000-row facet scan)
+    const [total, books] = await Promise.all([
       this.prisma.book.count({ where }),
       this.prisma.book.findMany({
         where,
@@ -572,14 +573,10 @@ export class SearchService implements OnModuleInit {
         orderBy,
         include: this.bookInclude(),
       }),
-      this.prisma.book.findMany({
-        where,
-        take: 5000,
-        include: {
-          book_categories: { include: { category: true } },
-        },
-      }),
     ]);
+
+    // Lightweight facets via raw SQL aggregations
+    const facets = await this.buildPostgresFacetsRaw(filters);
 
     return {
       data: books.map((book) => this.formatPrismaBook(book)),
@@ -590,10 +587,95 @@ export class SearchService implements OnModuleInit {
         totalPages: Math.ceil(total / limit),
         source: 'postgres',
       },
-      facets: this.buildPostgresFacets(facetBooks),
+      facets,
       correction: null,
     };
   }
+
+  private async buildPostgresFacetsRaw(filters: SearchFilters) {
+    const minPrice = this.optionalNumber(filters.minPrice);
+    const maxPrice = this.optionalNumber(filters.maxPrice);
+    const rating = this.optionalNumber(filters.rating);
+    const langFilter = filters.lang || null;
+    const categoryFilter = filters.category || null;
+    const queryText = filters.q?.trim() || null;
+
+    // Build base WHERE clause compatible with raw SQL
+    const conditions: string[] = ['b.is_active = true'];
+    if (langFilter) conditions.push(`b.language = '${langFilter.replace(/'/g, "''")}'`);
+    if (minPrice !== undefined) conditions.push(`b.price >= ${minPrice}`);
+    if (maxPrice !== undefined) conditions.push(`b.price <= ${maxPrice}`);
+    if (rating !== undefined) conditions.push(`b.avg_rating >= ${rating}`);
+    if (categoryFilter) {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM book_categories bc2
+        JOIN categories cat2 ON bc2.category_id = cat2.category_id
+        WHERE bc2.book_id = b.book_id
+          AND (cat2.category_id::text = '${categoryFilter}' OR cat2.slug = '${categoryFilter}')
+      )`);
+    }
+    if (queryText) {
+      const escaped = queryText.replace(/'/g, "''");
+      conditions.push(`(b.title ILIKE '%${escaped}%' OR b.description ILIKE '%${escaped}%')`);
+    }
+    const baseWhere = conditions.join(' AND ');
+
+    try {
+      // 1. Category facets
+      const catRows: any[] = await this.prisma.$queryRawUnsafe(`
+        SELECT c.category_id::text AS id, c.slug, c.name, COUNT(DISTINCT b.book_id)::int AS count
+        FROM books b
+        JOIN book_categories bc ON b.book_id = bc.book_id
+        JOIN categories c ON bc.category_id = c.category_id
+        WHERE ${baseWhere}
+        GROUP BY c.category_id, c.slug, c.name
+        ORDER BY count DESC
+        LIMIT 30
+      `);
+
+      // 2. Price range facets
+      const priceRows: any[] = await this.prisma.$queryRawUnsafe(`
+        SELECT
+          SUM(CASE WHEN b.price < 50000 THEN 1 ELSE 0 END)::int AS under_50,
+          SUM(CASE WHEN b.price >= 50000 AND b.price < 100000 THEN 1 ELSE 0 END)::int AS p50_100,
+          SUM(CASE WHEN b.price >= 100000 AND b.price < 200000 THEN 1 ELSE 0 END)::int AS p100_200,
+          SUM(CASE WHEN b.price >= 200000 THEN 1 ELSE 0 END)::int AS over_200
+        FROM books b
+        WHERE ${baseWhere}
+      `);
+
+      // 3. Rating facets
+      const ratingRows: any[] = await this.prisma.$queryRawUnsafe(`
+        SELECT
+          SUM(CASE WHEN b.avg_rating >= 3 THEN 1 ELSE 0 END)::int AS r3,
+          SUM(CASE WHEN b.avg_rating >= 4 THEN 1 ELSE 0 END)::int AS r4,
+          SUM(CASE WHEN b.avg_rating >= 5 THEN 1 ELSE 0 END)::int AS r5
+        FROM books b
+        WHERE ${baseWhere}
+      `);
+
+      const pr = priceRows[0] || {};
+      const rr = ratingRows[0] || {};
+
+      return {
+        categories: catRows.map((r) => ({ id: r.id, slug: r.slug, name: r.name, count: r.count })),
+        priceRanges: [
+          { key: 'under_50', to: 50000, count: pr.under_50 || 0 },
+          { key: '50_100', from: 50000, to: 100000, count: pr.p50_100 || 0 },
+          { key: '100_200', from: 100000, to: 200000, count: pr.p100_200 || 0 },
+          { key: 'over_200', from: 200000, count: pr.over_200 || 0 },
+        ],
+        ratings: [
+          { key: 'rating_3', from: 3, count: rr.r3 || 0 },
+          { key: 'rating_4', from: 4, count: rr.r4 || 0 },
+          { key: 'rating_5', from: 5, count: rr.r5 || 0 },
+        ],
+      };
+    } catch {
+      return { categories: [], priceRanges: [], ratings: [] };
+    }
+  }
+
 
   private async postgresSuggest(queryText: string) {
     const terms = this.queryTerms(queryText);
