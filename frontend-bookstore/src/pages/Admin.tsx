@@ -10,11 +10,13 @@ import {
     Layers,
     Lock,
     LogOut,
+    Menu,
     Package,
     Plus,
     RefreshCw,
     ShoppingBag,
     Star,
+    Trash2,
     TrendingUp,
     UserCheck,
     UserSquare2,
@@ -128,6 +130,8 @@ type CategoryFormState = {
     name: string;
     slug: string;
     sort_order: number | string;
+    parent_id: string;
+    level: number | string;
 };
 
 const EMPTY_BOOK_FORM: BookFormState = {
@@ -157,11 +161,14 @@ const EMPTY_CATEGORY_FORM: CategoryFormState = {
     name: '',
     slug: '',
     sort_order: 0,
+    parent_id: '',
+    level: 1,
 };
 
 export function Admin() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -719,6 +726,8 @@ export function Admin() {
             name: category.name || '',
             slug: category.slug || '',
             sort_order: category.sort_order || 0,
+            parent_id: category.parent_id || '',
+            level: category.level || 1,
         });
         setShowCategoryModal(true);
     };
@@ -728,19 +737,29 @@ export function Admin() {
         const token = getToken();
         if (!token) return;
         const method = editingCategoryId ? 'PUT' : 'POST';
-        const endpoint = editingCategoryId ? `${API_URL}/admin/categories/${editingCategoryId}` : `${API_URL}/admin/categories`;
+        const endpoint = editingCategoryId
+            ? `${API_URL}/admin/categories/${editingCategoryId}`
+            : `${API_URL}/admin/categories`;
         try {
+            const payload: Record<string, any> = {
+                name: categoryForm.name.trim(),
+                slug: categoryForm.slug.trim(),
+                sort_order: Number(categoryForm.sort_order),
+                level: Number(categoryForm.level) || 1,
+            };
+            if (categoryForm.parent_id.trim()) {
+                payload.parent_id = categoryForm.parent_id.trim();
+            }
             const res = await fetch(endpoint, {
                 method,
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                    name: categoryForm.name.trim(),
-                    slug: categoryForm.slug.trim(),
-                    sort_order: Number(categoryForm.sort_order),
-                    level: 1,
-                }),
+                body: JSON.stringify(payload),
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.message || 'Có lỗi xảy ra khi lưu danh mục.');
+                return;
+            }
             setShowCategoryModal(false);
             await fetchCategories();
         } catch (error) {
@@ -756,7 +775,11 @@ export function Admin() {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) return;
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.message || 'Không thể xóa danh mục này. Có thể danh mục đang có sách liên kết.');
+                return;
+            }
             await fetchCategories();
         } catch (error) {
             console.error(error);
@@ -812,12 +835,37 @@ export function Admin() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-100 flex">
-            <div className="w-64 bg-white shadow-lg flex flex-col shrink-0">
-                <div className="p-6 border-b border-slate-100">
+        <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
+            {/* Mobile Header */}
+            <div className="md:hidden bg-white p-4 flex items-center justify-between border-b shadow-sm shrink-0">
+                <span className="font-bold text-xl text-slate-800">Admin Panel</span>
+                <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-50 rounded-lg">
+                    <Menu size={24} />
+                </button>
+            </div>
+
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div 
+                    className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar */}
+            <div className={`
+                fixed md:static inset-y-0 left-0 z-50
+                w-64 bg-white shadow-xl md:shadow-lg flex flex-col shrink-0
+                transition-transform duration-300 ease-in-out
+                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+            `}>
+                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                     <span className="font-bold text-xl text-slate-800">Admin Panel</span>
+                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
+                        <X size={20} />
+                    </button>
                 </div>
-                <nav className="flex-1 p-4 space-y-2">
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
                     {[
                         ['dashboard', <TrendingUp size={18} />, 'Tổng quan'],
                         ['books', <BookOpen size={18} />, 'Sản phẩm'],
@@ -830,7 +878,10 @@ export function Admin() {
                     ].map(([key, icon, label]) => (
                         <button
                             key={key as string}
-                            onClick={() => setActiveTab(String(key))}
+                            onClick={() => {
+                                setActiveTab(String(key));
+                                setIsSidebarOpen(false);
+                            }}
                             className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
                                 activeTab === key ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
                             }`}
@@ -843,13 +894,13 @@ export function Admin() {
                     ))}
                 </nav>
                 <div className="p-4 border-t border-slate-100">
-                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-rose-600 hover:bg-rose-50">
+                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-rose-600 hover:bg-rose-50 transition-colors">
                         <LogOut size={18} /> Đăng xuất
                     </button>
                 </div>
             </div>
 
-            <div className="flex-1 p-4 md:p-8 h-screen overflow-y-auto">
+            <div className="flex-1 p-4 md:p-8 h-[calc(100vh-65px)] md:h-screen overflow-y-auto w-full">
                 {loading ? (
                     <div className="h-64 flex items-center justify-center">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
@@ -1284,13 +1335,26 @@ export function Admin() {
                                             <td className="py-3 px-6 text-slate-600">{cat.slug}</td>
                                             <td className="py-3 px-6 text-slate-600">{cat.sort_order}</td>
                                             <td className="py-3 px-6">{cat._count?.book_categories ?? 0}</td>
-                                            <td className="py-3 px-6 text-center flex justify-center gap-3">
-                                                <button onClick={() => openEditCategoryModal(cat)} className="text-indigo-600">
-                                                    <Edit size={18} />
-                                                </button>
-                                                <button onClick={() => { if(window.confirm('Chắc chắn xoá danh mục này?')) handleDeleteCategory(cat.category_id); }} className="text-rose-600">
-                                                    <Ban size={18} />
-                                                </button>
+                                            <td className="py-3 px-6 text-center">
+                                                <div className="flex justify-center gap-2">
+                                                    <button
+                                                        onClick={() => openEditCategoryModal(cat)}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 text-xs font-medium transition-colors"
+                                                        title="Chỉnh sửa danh mục"
+                                                    >
+                                                        <Edit size={14} /> Sửa
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (window.confirm(`Chắc chắn xóa danh mục "${cat.name}"?\nLưu ý: Sẽ thất bại nếu danh mục đang có sách liên kết.`))
+                                                                handleDeleteCategory(cat.category_id);
+                                                        }}
+                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 text-xs font-medium transition-colors"
+                                                        title="Xóa danh mục"
+                                                    >
+                                                        <Trash2 size={14} /> Xóa
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1470,12 +1534,70 @@ export function Admin() {
                             <button onClick={() => setShowCategoryModal(false)} className="text-slate-400 hover:text-rose-500"><X size={20} /></button>
                         </div>
                         <form onSubmit={handleCategorySubmit} className="p-6 space-y-4">
-                            <input required value={categoryForm.name} onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })} placeholder="Tên danh mục" className="w-full border border-slate-200 p-3 rounded-xl" />
-                            <input required value={categoryForm.slug} onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })} placeholder="Slug (vd: tieu-thuyet)" className="w-full border border-slate-200 p-3 rounded-xl" />
-                            <input required type="number" value={categoryForm.sort_order} onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: e.target.value })} placeholder="Thứ tự hiển thị (0, 1, 2...)" className="w-full border border-slate-200 p-3 rounded-xl" />
-                            <div className="flex justify-end gap-3">
-                                <button type="button" onClick={() => setShowCategoryModal(false)} className="px-5 py-2 rounded-xl text-slate-600 hover:bg-slate-100">Hủy</button>
-                                <button type="submit" className="px-5 py-2 rounded-xl bg-indigo-600 text-white font-semibold">{editingCategoryId ? 'Cập nhật' : 'Thêm mới'}</button>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Tên danh mục <span className="text-rose-500">*</span></label>
+                                <input
+                                    required
+                                    value={categoryForm.name}
+                                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                    placeholder="VD: Văn học, Kinh tế..."
+                                    className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Slug <span className="text-rose-500">*</span></label>
+                                <input
+                                    required
+                                    value={categoryForm.slug}
+                                    onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
+                                    placeholder="VD: van-hoc, kinh-te"
+                                    className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Cấp độ</label>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={3}
+                                        value={categoryForm.level}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, level: e.target.value })}
+                                        placeholder="1 = gốc, 2 = con..."
+                                        className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 mb-1">Thứ tự (Sort)</label>
+                                    <input
+                                        type="number"
+                                        value={categoryForm.sort_order}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, sort_order: e.target.value })}
+                                        placeholder="0, 1, 2..."
+                                        className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Danh mục cha (ID) <span className="text-slate-400 font-normal">— tuỳ chọn</span></label>
+                                <select
+                                    value={categoryForm.parent_id}
+                                    onChange={(e) => setCategoryForm({ ...categoryForm, parent_id: e.target.value })}
+                                    className="w-full border border-slate-200 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                                >
+                                    <option value="">— Không có (danh mục gốc) —</option>
+                                    {categories
+                                        .filter((c) => !editingCategoryId || c.category_id !== editingCategoryId)
+                                        .map((c) => (
+                                            <option key={c.category_id} value={c.category_id}>
+                                                {c.name} (level {c.level})
+                                            </option>
+                                        ))}
+                                </select>
+                            </div>
+                            <div className="flex justify-end gap-3 pt-2">
+                                <button type="button" onClick={() => setShowCategoryModal(false)} className="px-5 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-medium">Hủy</button>
+                                <button type="submit" className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors">{editingCategoryId ? 'Cập nhật' : 'Thêm mới'}</button>
                             </div>
                         </form>
                     </div>

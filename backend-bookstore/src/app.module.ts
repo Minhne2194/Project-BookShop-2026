@@ -14,7 +14,12 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { AdminModule } from './admin/admin.module';
 import { PaymentModule } from './payment/payment.module';
 import { UploadModule } from './upload/upload.module';
+<<<<<<< Updated upstream
 import { SearchModule } from './search/search.module';
+=======
+import { BullModule } from '@nestjs/bullmq';
+import { EmailModule } from './email/email.module';
+>>>>>>> Stashed changes
 
 @Module({
   imports: [
@@ -23,6 +28,13 @@ import { SearchModule } from './search/search.module';
       serveRoot: '/uploads',
     }),
     PrismaModule,
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: Number(process.env.REDIS_PORT) || 6379,
+      },
+    }),
+    EmailModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

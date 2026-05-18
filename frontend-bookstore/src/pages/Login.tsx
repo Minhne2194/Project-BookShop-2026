@@ -10,7 +10,7 @@ export function Login() {
     const [isLoading, setIsLoading] = useState(false);
 
     const navigate = useNavigate();
-    const { setToken } = useCart();
+    const { setToken, guestId } = useCart();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -21,12 +21,15 @@ export function Login() {
             const res = await fetch('http://localhost:3000/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password_raw: password })
+                body: JSON.stringify({ email, password_raw: password, guest_id: guestId })
             });
 
             if (res.ok) {
                 const data = await res.json();
                 localStorage.setItem('token', data.access_token);
+                if (data.refresh_token) {
+                    localStorage.setItem('refresh_token', data.refresh_token);
+                }
                 setToken(data.access_token);
                 navigate('/');
             } else {

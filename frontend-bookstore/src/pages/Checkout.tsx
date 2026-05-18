@@ -35,7 +35,7 @@ export function Checkout() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessingPayment, setIsProcessingPayment] = useState(false);
     const [promoCode, setPromoCode] = useState(searchParams.get('promo') || '');
-    const [appliedPromo, setAppliedPromo] = useState<string | null>(searchParams.get('promo') || null);
+    const [appliedPromo, setAppliedPromo] = useState<any>(null);
     const [isValidatingPromo, setIsValidatingPromo] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -44,6 +44,28 @@ export function Checkout() {
         address: '',
         paymentMethod: 'cod'
     });
+
+    useEffect(() => {
+        if (searchParams.get('promo') && token) {
+            handleApplyPromoInit(searchParams.get('promo')!);
+        }
+    }, [token]);
+
+    const handleApplyPromoInit = async (code: string) => {
+        try {
+            const res = await fetch(`${API_URL}/cart/validate-promo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ code }),
+            });
+            const data = await res.json();
+            if (data.valid) {
+                setAppliedPromo({ code: code.trim().toUpperCase(), discount: data.discount, type: data.type, description: data.description });
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     useEffect(() => {
         if (cartItems.length === 0) {
@@ -77,8 +99,23 @@ export function Checkout() {
 
     const subtotal = cartDetails.reduce((sum, item) => sum + (Number(item.price || 0) * item.quantity), 0);
     const baseShippingFee = 30000;
-    const effectiveShippingFee = appliedPromo ? 0 : baseShippingFee;
-    const totalAmount = subtotal + effectiveShippingFee;
+    
+    let effectiveShippingFee = baseShippingFee;
+    let calculatedDiscount = 0;
+
+    if (appliedPromo) {
+        if (appliedPromo.type === 'free_shipping') {
+            effectiveShippingFee = 0;
+            calculatedDiscount = baseShippingFee;
+        } else if (appliedPromo.type === 'percentage') {
+            calculatedDiscount = (subtotal * appliedPromo.discount) / 100;
+            // Optionally cap it if we had max_discount
+        } else if (appliedPromo.type === 'fixed_amount') {
+            calculatedDiscount = appliedPromo.discount;
+        }
+    }
+
+    const totalAmount = Math.max(0, subtotal + effectiveShippingFee - calculatedDiscount);
 
     useEffect(() => {
         if (!loading && cartItems.length === 0 && !isSuccess) {
@@ -109,7 +146,7 @@ export function Checkout() {
                         phone: formData.phone,
                         address: formData.address
                     },
-                    ...(appliedPromo ? { promo_code: appliedPromo } : {}),
+                    ...(appliedPromo ? { promo_code: appliedPromo.code } : {}),
                 })
             });
 
@@ -252,7 +289,7 @@ export function Checkout() {
             });
             const data = await res.json();
             if (data.valid) {
-                setAppliedPromo(promoCode.trim().toUpperCase());
+                setAppliedPromo({ code: promoCode.trim().toUpperCase(), discount: data.discount, type: data.type, description: data.description });
                 toast(`${data.description} — đã áp dụng mã ${promoCode.trim().toUpperCase()}`, 'success');
             } else {
                 toast(data.message || 'Mã không hợp lệ.', 'error');
@@ -386,7 +423,7 @@ export function Checkout() {
                                 </div>
                                 <div className="flex justify-between text-slate-600 text-sm">
                                     <span>Phí vận chuyển</span>
-                                    {appliedPromo ? (
+                                    {appliedPromo && appliedPromo.type === 'free_shipping' ? (
                                         <div className="flex items-center gap-2">
                                             <span className="text-slate-400 line-through">{formatPrice(baseShippingFee)}</span>
                                             <span className="text-emerald-600 font-medium">{formatPrice(0)}</span>
@@ -395,13 +432,19 @@ export function Checkout() {
                                         <span className="font-medium">{formatPrice(baseShippingFee)}</span>
                                     )}
                                 </div>
+                                {appliedPromo && appliedPromo.type !== 'free_shipping' && (
+                                    <div className="flex justify-between text-emerald-600 text-sm">
+                                        <span>Giảm giá</span>
+                                        <span className="font-medium">-{formatPrice(calculatedDiscount)}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {appliedPromo && (
                                 <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
                                     <CheckCircle2 className="w-4 h-4" />
-                                    <span>Đã áp dụng <strong>{appliedPromo}</strong> — miễn phí vận chuyển</span>
-                                    <button onClick={handleRemovePromo} className="ml-auto p-0.5 hover:bg-emerald-200 rounded transition-colors">
+                                    <span>Đã áp dụng <strong>{appliedPromo.code}</strong> — {appliedPromo.description}</span>
+                                    <button type="button" onClick={handleRemovePromo} className="ml-auto p-0.5 hover:bg-emerald-200 rounded transition-colors">
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>

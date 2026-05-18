@@ -8,6 +8,7 @@ interface CartItem {
 
 interface CartContextType {
   token: string | null;
+  guestId: string;
   cartItems: CartItem[];
   setToken: (token: string | null) => void;
   fetchCart: () => void;
@@ -19,45 +20,63 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [guestId] = useState<string>(() => {
+    let id = localStorage.getItem('guest_id');
+    if (!id) {
+      id = 'guest:' + Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('guest_id', id);
+    }
+    return id;
+  });
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const { toast } = useToast();
 
   const fetchCart = () => {
+    const headers: Record<string, string> = {};
     if (token) {
-      fetch('http://localhost:3000/cart', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if(data.items) setCartItems(data.items);
-      });
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      headers['x-guest-id'] = guestId;
     }
+
+    fetch('http://localhost:3000/cart', { headers })
+    .then(res => res.json())
+    .then(data => {
+      if(data && data.items) setCartItems(data.items);
+    })
+    .catch(err => console.error('Error fetching cart:', err));
   };
 
   useEffect(() => {
     fetchCart();
-  }, [token]);
+  }, [token, guestId]);
 
   const handleAddToCart = async (bookId: string, quantity: number = 1) => {
-    if (!token) {
-      toast("Vui lòng đăng nhập!", 'info');
-      return;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      headers['x-guest-id'] = guestId;
     }
+
     const res = await fetch('http://localhost:3000/cart/add', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
+      headers,
       body: JSON.stringify({ bookId, quantity })
     });
-    if (res.ok) fetchCart();
+    
+    if (res.ok) {
+      fetchCart();
+      toast("Đã thêm vào giỏ hàng!", 'success');
+    } else {
+      toast("Không thể thêm vào giỏ hàng", 'error');
+    }
   };
 
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ token, cartItems, setToken, fetchCart, handleAddToCart, cartCount }}>
+    <CartContext.Provider value={{ token, guestId, cartItems, setToken, fetchCart, handleAddToCart, cartCount }}>
       {children}
     </CartContext.Provider>
   );

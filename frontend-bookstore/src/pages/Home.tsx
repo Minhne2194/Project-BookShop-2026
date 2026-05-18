@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart, Globe } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { SafeImage } from '../components/SafeImage';
@@ -107,9 +107,9 @@ export function Home() {
               )}
             </div>
             <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-lg">M</div>
-                <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+                <span className="font-medium text-slate-700 text-sm truncate">Modern Book</span>
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Sách mới</h3>
               <Link to="/new-books" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
@@ -128,9 +128,9 @@ export function Home() {
               )}
             </div>
             <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-lg">M</div>
-                <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+                <span className="font-medium text-slate-700 text-sm truncate">Modern Book</span>
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Bán chạy tuần này</h3>
               <Link to="/best-sellers" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
@@ -149,11 +149,9 @@ export function Home() {
               )}
             </div>
             <div className="py-6 px-4 sm:py-8 sm:px-6 flex-1 flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-200">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-indigo-600 text-white flex items-center justify-center rounded-full font-serif font-bold text-base">
-                  <Globe size={16} />
-                </div>
-                <span className="font-medium text-slate-700 text-base whitespace-nowrap">Modern Book</span>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+                <span className="font-medium text-slate-700 text-sm truncate">Modern Book</span>
               </div>
               <h3 className="text-xl font-serif font-bold text-slate-900 mb-6">Sách tiếng Anh</h3>
               <Link to="/search?lang=en" className="text-indigo-600 hover:text-indigo-800 font-medium border-b border-indigo-600 inline-block w-max pb-0.5">
@@ -211,9 +209,9 @@ export function Home() {
       <section className="max-w-7xl mx-auto px-4 py-8">
         <h2 className="text-[25px] font-serif font-bold text-black mb-4">Sách Mới Nhất</h2>
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-lg">M</div>
-            <span className="font-medium text-slate-700 text-base">Modern Book</span>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+            <span className="font-medium text-slate-700 text-sm">Modern Book</span>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/new-books" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">Xem tất cả</Link>
@@ -240,9 +238,9 @@ export function Home() {
       <section className="max-w-7xl mx-auto px-4 py-8">
         <h2 className="text-[25px] font-serif font-bold text-black mb-4">Sách Bán Chạy</h2>
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-lg">M</div>
-            <span className="font-medium text-slate-700 text-base">Modern Book</span>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+            <span className="font-medium text-slate-700 text-sm">Modern Book</span>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/best-sellers" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">Xem tất cả</Link>
@@ -270,11 +268,9 @@ export function Home() {
         <section className="max-w-7xl mx-auto px-4 py-8">
           <h2 className="text-[25px] font-serif font-bold text-black mb-4">English Books</h2>
           <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-600 text-white flex items-center justify-center rounded-full">
-                <Globe size={16} />
-              </div>
-              <span className="font-medium text-slate-700 text-base">Modern Book</span>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 bg-[#594d95] text-white flex items-center justify-center rounded-full font-serif font-bold text-sm shrink-0">M</div>
+              <span className="font-medium text-slate-700 text-sm">Modern Book</span>
             </div>
             <div className="flex items-center gap-4">
               <Link to="/search?lang=en" className="hidden sm:block text-indigo-600 font-medium hover:text-indigo-800 text-sm">View All</Link>

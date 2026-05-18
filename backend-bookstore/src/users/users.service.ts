@@ -1,10 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import * as argon2 from 'argon2';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async create(data: {
     email: string;
@@ -35,6 +39,12 @@ export class UsersService {
         created_at: true,
       },
     });
+
+    // Send welcome email
+    await this.emailService.sendWelcomeEmail(
+      newUser.email,
+      newUser.full_name || 'Khách hàng',
+    );
 
     return newUser;
   }

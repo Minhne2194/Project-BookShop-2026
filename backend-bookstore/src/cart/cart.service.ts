@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import Redis from 'ioredis';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class CartService {
@@ -7,7 +8,7 @@ export class CartService {
 
   private readonly freeShipCodes: Set<string>;
 
-  constructor() {
+  constructor(private prisma: PrismaService) {
     this.redis = new Redis({
       host: '127.0.0.1',
       port: 6379,
@@ -64,9 +65,38 @@ export class CartService {
   }
 
   /**
+   * Merge guest cart into user cart
+   */
+  async mergeCart(guestId: string, userId: string) {
+    const guestCart = await this.getCart(guestId);
+    if (!guestCart.items || guestCart.items.length === 0) {
+      return this.getCart(userId);
+    }
+
+    const userCart = await this.getCart(userId);
+    
+    // Merge logic: Add guest items to user items.
+    for (const guestItem of guestCart.items) {
+      const existingItem = userCart.items.find((item: any) => item.bookId === guestItem.bookId);
+      if (existingItem) {
+        existingItem.quantity += guestItem.quantity;
+      } else {
+        userCart.items.push(guestItem);
+      }
+    }
+
+    // Save user cart
+    await this.redis.set(`cart:${userId}`, JSON.stringify(userCart), 'EX', 604800);
+    // Delete guest cart
+    await this.redis.del(`cart:${guestId}`);
+
+    return userCart;
+  }
+
+  /**
    * Validate a promo code. Returns discount info if valid, error if not.
    */
-  validatePromo(code: string) {
+  async validatePromo(code: string) {
     const normalized = (code || '').trim().toUpperCase();
     if (!normalized) {
       return { valid: false, message: 'Vui lòng nhập mã khuyến mãi.' };
@@ -75,12 +105,50 @@ export class CartService {
       return {
         valid: true,
         discount: 30000,
+        type: 'free_shipping',
         description: 'Miễn phí vận chuyển',
       };
     }
+
+    const coupon = await this.prisma.coupon.findUnique({
+      where: { code: normalized }
+    });
+
+    if (!coupon) {
+      return { valid: false, message: 'Mã khuyến mãi không tồn tại hoặc không hợp lệ.' };
+    }
+
+    if (!coupon.is_active) {
+      return { valid: false, message: 'Mã khuyến mãi đã bị vô hiệu hóa.' };
+    }
+
+    const now = new Date();
+    if (now < coupon.start_date) {
+      return { valid: false, message: 'Mã khuyến mãi chưa có hiệu lực.' };
+    }
+
+    if (now > coupon.end_date) {
+      return { valid: false, message: 'Mã khuyến mãi đã hết hạn.' };
+    }
+
+    if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+      return { valid: false, message: 'Mã khuyến mãi đã hết lượt sử dụng.' };
+    }
+
+    let description = '';
+    if (coupon.discount_type === 'percentage') {
+      description = `Giảm ${coupon.discount_value}%`;
+    } else if (coupon.discount_type === 'fixed_amount') {
+      description = `Giảm ${Number(coupon.discount_value).toLocaleString('vi-VN')}đ`;
+    } else if (coupon.discount_type === 'free_shipping') {
+      description = 'Miễn phí vận chuyển';
+    }
+
     return {
-      valid: false,
-      message: 'Mã khuyến mãi không hợp lệ hoặc đã hết hạn.',
+      valid: true,
+      discount: coupon.discount_value,
+      type: coupon.discount_type,
+      description: description,
     };
   }
 

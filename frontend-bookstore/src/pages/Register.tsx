@@ -15,7 +15,7 @@ export function Register() {
     const [loadingText, setLoadingText] = useState('Đang xử lý...');
 
     const navigate = useNavigate();
-    const { setToken } = useCart();
+    const { setToken, guestId } = useCart();
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -50,12 +50,15 @@ export function Register() {
             const loginRes = await fetch('http://localhost:3000/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password_raw: password })
+                body: JSON.stringify({ email, password_raw: password, guest_id: guestId })
             });
 
             if (loginRes.ok) {
                 const loginData = await loginRes.json();
                 localStorage.setItem('token', loginData.access_token);
+                if (loginData.refresh_token) {
+                    localStorage.setItem('refresh_token', loginData.refresh_token);
+                }
                 setToken(loginData.access_token);
 
 

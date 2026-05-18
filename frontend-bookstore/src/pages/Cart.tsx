@@ -15,14 +15,14 @@ interface Book {
 }
 
 export function Cart() {
-    const { token, cartItems, fetchCart } = useCart();
+    const { token, guestId, cartItems, fetchCart } = useCart();
     const { toast } = useToast();
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const navigate = useNavigate();
 
     const [promoCode, setPromoCode] = useState('');
-    const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+    const [appliedPromo, setAppliedPromo] = useState<any>(null);
     const [isValidatingPromo, setIsValidatingPromo] = useState(false);
 
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -70,20 +70,19 @@ export function Cart() {
 
 
     const handleUpdateQuantity = async (bookId: string, newQuantity: number) => {
-        if (!token) return;
-
         if (newQuantity <= 0) {
             setConfirmRemoveId(bookId);
             return;
         }
 
         try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            else headers['x-guest-id'] = guestId;
+
             const res = await fetch('http://localhost:3000/cart/update', {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
+                headers,
                 body: JSON.stringify({ bookId, quantity: newQuantity })
             });
             if (res.ok) fetchCart();
@@ -93,8 +92,6 @@ export function Cart() {
     };
 
     const handleRemove = async (bookId: string) => {
-        if (!token) return;
-
         if (confirmRemoveId !== bookId) {
             setConfirmRemoveId(bookId);
             return;
@@ -102,9 +99,13 @@ export function Cart() {
 
         setConfirmRemoveId(null);
         try {
+            const headers: Record<string, string> = {};
+            if (token) headers.Authorization = `Bearer ${token}`;
+            else headers['x-guest-id'] = guestId;
+
             const res = await fetch(`http://localhost:3000/cart/remove/${bookId}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` }
+                headers
             });
             if (res.ok) {
                 const item = cartDetails.find(d => d.bookId === bookId);
@@ -117,20 +118,21 @@ export function Cart() {
     };
 
     const handleApplyPromo = async () => {
-        if (!promoCode.trim() || !token) return;
+        if (!promoCode.trim()) return;
         setIsValidatingPromo(true);
         try {
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            else headers['x-guest-id'] = guestId;
+
             const res = await fetch('http://localhost:3000/cart/validate-promo', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
+                headers,
                 body: JSON.stringify({ code: promoCode }),
             });
             const data = await res.json();
             if (data.valid) {
-                setAppliedPromo(promoCode.trim().toUpperCase());
+                setAppliedPromo({ code: promoCode.trim().toUpperCase(), discount: data.discount, type: data.type, description: data.description });
                 toast(`${data.description} — đã áp dụng mã ${promoCode.trim().toUpperCase()}`, 'success');
             } else {
                 toast(data.message || 'Mã không hợp lệ.', 'error');
@@ -147,22 +149,28 @@ export function Cart() {
         setPromoCode('');
     };
 
-    const effectiveShippingFee = appliedPromo ? 0 : shippingFee;
-    const effectiveTotal = subtotal + effectiveShippingFee;
+    let effectiveShippingFee = shippingFee;
+    let calculatedDiscount = 0;
+
+    if (appliedPromo) {
+        if (appliedPromo.type === 'free_shipping') {
+            effectiveShippingFee = 0;
+            calculatedDiscount = shippingFee;
+        } else if (appliedPromo.type === 'percentage') {
+            calculatedDiscount = (subtotal * appliedPromo.discount) / 100;
+        } else if (appliedPromo.type === 'fixed_amount') {
+            calculatedDiscount = appliedPromo.discount;
+        }
+    }
+
+    const effectiveTotal = Math.max(0, subtotal + effectiveShippingFee - calculatedDiscount);
 
     const formatPrice = (price: string | number) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
     };
 
 
-    if (!token) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
-                <h2 className="text-2xl font-serif font-bold text-slate-800 mb-4">Vui lòng đăng nhập</h2>
-                <p className="text-slate-500 mb-8 text-center">Bạn cần đăng nhập để xem và quản lý giỏ hàng của mình.</p>
-            </div>
-        );
-    }
+
 
     if (loading) {
         return (
@@ -241,7 +249,7 @@ export function Cart() {
                                 </div>
                                 <div className="flex justify-between text-slate-600">
                                     <span>Phí vận chuyển</span>
-                                    {appliedPromo ? (
+                                    {appliedPromo && appliedPromo.type === 'free_shipping' ? (
                                         <div className="flex items-center gap-2">
                                             <span className="text-slate-400 line-through text-sm">{formatPrice(shippingFee)}</span>
                                             <span className="text-emerald-600 font-medium">{formatPrice(0)}</span>
@@ -250,12 +258,18 @@ export function Cart() {
                                         <span>{formatPrice(shippingFee)}</span>
                                     )}
                                 </div>
+                                {appliedPromo && appliedPromo.type !== 'free_shipping' && (
+                                    <div className="flex justify-between text-emerald-600">
+                                        <span>Giảm giá</span>
+                                        <span className="font-medium">-{formatPrice(calculatedDiscount)}</span>
+                                    </div>
+                                )}
                             </div>
 
                             {appliedPromo && (
                                 <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
                                     <CheckCircle2 className="w-4 h-4" />
-                                    <span>Đã áp dụng <strong>{appliedPromo}</strong> — miễn phí vận chuyển</span>
+                                    <span>Đã áp dụng <strong>{appliedPromo.code}</strong> — {appliedPromo.description}</span>
                                     <button onClick={handleRemovePromo} className="ml-auto p-0.5 hover:bg-emerald-200 rounded transition-colors">
                                         <X className="w-4 h-4" />
                                     </button>
@@ -294,7 +308,14 @@ export function Cart() {
                             </div>
 
                             <button
-                                onClick={() => navigate(appliedPromo ? `/checkout?promo=${appliedPromo}` : '/checkout')}
+                                onClick={() => {
+                                    if (!token) {
+                                        toast("Vui lòng đăng nhập để thanh toán", "info");
+                                        navigate('/login');
+                                    } else {
+                                        navigate(appliedPromo ? `/checkout?promo=${appliedPromo.code}` : '/checkout');
+                                    }
+                                }}
                                 className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 Tiến hành thanh toán <ArrowRight className="w-5 h-5" />

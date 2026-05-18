@@ -8,19 +8,28 @@ import {
   Param,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { CartService } from './cart.service';
-import { AuthGuard } from '../auth/auth.guard'; // Import chú bảo vệ
+import { OptionalAuthGuard } from '../auth/optional-auth.guard';
 
-@UseGuards(AuthGuard) // BẮT BUỘC ĐĂNG NHẬP MỚI ĐƯỢC VÀO CÁC API NÀY
+@UseGuards(OptionalAuthGuard)
 @Controller('cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  // Lấy giỏ hàng của user đang đăng nhập
+  private getUserIdOrGuestId(req: any): string {
+    const userId = req.user?.sub || req.headers['x-guest-id'];
+    if (!userId) {
+      throw new BadRequestException('Missing authentication or guest ID');
+    }
+    return userId;
+  }
+
+  // Lấy giỏ hàng
   @Get()
   getCart(@Req() req: any) {
-    const userId = req.user.sub; // Lấy ID của user từ thẻ Token
+    const userId = this.getUserIdOrGuestId(req);
     return this.cartService.getCart(userId);
   }
 
@@ -30,7 +39,7 @@ export class CartController {
     @Req() req: any,
     @Body() body: { bookId: string; quantity: number },
   ) {
-    const userId = req.user.sub;
+    const userId = this.getUserIdOrGuestId(req);
     return this.cartService.addToCart(userId, body.bookId, body.quantity);
   }
 
@@ -40,14 +49,14 @@ export class CartController {
     @Req() req: any,
     @Body() body: { bookId: string; quantity: number },
   ) {
-    const userId = req.user.sub;
+    const userId = this.getUserIdOrGuestId(req);
     return this.cartService.updateCartItem(userId, body.bookId, body.quantity);
   }
 
   // Xóa 1 cuốn sách khỏi giỏ hàng
   @Delete('remove/:bookId')
   removeFromCart(@Req() req: any, @Param('bookId') bookId: string) {
-    const userId = req.user.sub;
+    const userId = this.getUserIdOrGuestId(req);
     return this.cartService.removeFromCart(userId, bookId);
   }
 

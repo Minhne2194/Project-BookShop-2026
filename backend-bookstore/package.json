@@ -26,7 +26,11 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+<<<<<<< Updated upstream
     "@elastic/elasticsearch": "^8.15.0",
+=======
+    "@nestjs/bullmq": "^11.0.4",
+>>>>>>> Stashed changes
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.2",
@@ -38,10 +42,12 @@
     "@prisma/client": "^7.8.0",
     "argon2": "^0.44.0",
     "axios": "^1.15.2",
+    "bullmq": "^5.76.10",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "ioredis": "^5.10.1",
     "multer": "^2.1.1",
+    "nodemailer": "^8.0.7",
     "pg": "^8.20.0",
     "puppeteer": "^24.42.0",
     "react-router-dom": "^7.14.2",
@@ -59,6 +65,7 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.1.0",
     "@types/node": "^24.12.2",
+    "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
