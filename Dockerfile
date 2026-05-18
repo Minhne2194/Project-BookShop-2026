@@ -54,7 +54,7 @@ EXPOSE 5173
 RUN echo '#!/bin/sh' > /app/start.sh && \
     echo 'cd /app/backend' >> /app/start.sh && \
     echo 'npx prisma migrate deploy' >> /app/start.sh && \
-    echo 'pm2 start dist/main.js --name "backend"' >> /app/start.sh && \
+    echo 'pm2 start dist/src/main.js --name "backend"' >> /app/start.sh && \
     echo 'pm2 start "serve -s /app/frontend/dist -l 5173" --name "frontend"' >> /app/start.sh && \
     echo 'pm2 logs' >> /app/start.sh && \
     chmod +x /app/start.sh
