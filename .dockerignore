@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+Dockerfile
+.dockerignore
+.git
+.gitignore
+backend-bookstore/dist
+backend-bookstore/node_modules
+frontend-bookstore/dist
+frontend-bookstore/node_modules
+.env
+uploads/
