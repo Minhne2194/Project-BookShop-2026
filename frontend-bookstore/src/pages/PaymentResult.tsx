@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle, ArrowRight, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export function PaymentResult() {
     const [searchParams] = useSearchParams();
     const [isSuccess, setIsSuccess] = useState<boolean | null>(null);
     const [message, setMessage] = useState('');
     const [orderId, setOrderId] = useState('');
+    const { t } = useTranslation();
 
     useEffect(() => {
         // Check for VNPay response
@@ -29,8 +31,8 @@ export function PaymentResult() {
             setIsSuccess(success);
             setOrderId(payosOrderCode);
             setMessage(success
-                ? 'Thanh toán thành công qua PayOS!'
-                : `Thanh toán thất bại. Trạng thái: ${payosStatus} — Vui lòng thử lại.`
+                ? t('paymentResult.payosSuccess')
+                : t('paymentResult.payosFailed', { status: payosStatus })
             );
         } else if (vnpResponseCode !== null) {
             // VNPay response
@@ -38,8 +40,8 @@ export function PaymentResult() {
             setIsSuccess(success);
             setOrderId(vnpTxnRef || '');
             setMessage(success 
-                ? 'Thanh toán thành công qua VNPay!' 
-                : `Thanh toán thất bại. Mã lỗi: ${vnpResponseCode} - ${vnpMessage || 'Vui lòng thử lại.'}`
+                ? t('paymentResult.vnpaySuccess') 
+                : t('paymentResult.failedWithMessage', { code: vnpResponseCode, message: vnpMessage || t('paymentResult.tryAgain') })
             );
         } else if (momoResultCode !== null) {
             // MoMo response
@@ -47,8 +49,8 @@ export function PaymentResult() {
             setIsSuccess(success);
             setOrderId(momoOrderId || '');
             setMessage(success 
-                ? 'Thanh toán thành công qua MoMo!' 
-                : `Thanh toán thất bại. Mã lỗi: ${momoResultCode} - ${momoMessage || 'Vui lòng thử lại.'}`
+                ? t('paymentResult.momoSuccess') 
+                : t('paymentResult.failedWithMessage', { code: momoResultCode, message: momoMessage || t('paymentResult.tryAgain') })
             );
         } else {
             // Check for direct result from our API
@@ -59,10 +61,10 @@ export function PaymentResult() {
             if (directSuccess !== null) {
                 setIsSuccess(directSuccess === 'true');
                 setOrderId(directOrderId || '');
-                setMessage(directMessage || (directSuccess === 'true' ? 'Thanh toán thành công!' : 'Thanh toán thất bại.'));
+                setMessage(directMessage || (directSuccess === 'true' ? t('paymentResult.success') : t('paymentResult.failed')));
             } else {
                 setIsSuccess(false);
-                setMessage('Không tìm thấy thông tin thanh toán. Vui lòng kiểm tra lại.');
+                setMessage(t('paymentResult.notFound'));
             }
         }
     }, [searchParams]);
@@ -96,19 +98,19 @@ export function PaymentResult() {
                                 </div>
                             </motion.div>
                             <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-4">
-                                Thanh toán thành công!
+                                {t('paymentResult.successTitle')}
                             </h1>
                             <p className="text-slate-600 mb-2">
                                 {message}
                             </p>
                             {orderId && (
                                 <p className="text-sm text-slate-500 mb-6">
-                                    Mã đơn hàng: <strong>{orderId}</strong>
+                                    {t('paymentResult.orderCode')} <strong>{orderId}</strong>
                                 </p>
                             )}
                             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 mb-8">
                                 <p className="text-emerald-700 text-sm">
-                                    Đơn hàng của bạn đang được xử lý. Chúng tôi sẽ gửi email xác nhận khi đơn hàng được giao.
+                                    {t('paymentResult.successDesc')}
                                 </p>
                             </div>
                         </>
@@ -124,19 +126,19 @@ export function PaymentResult() {
                                 </div>
                             </motion.div>
                             <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-4">
-                                Thanh toán thất bại
+                                {t('paymentResult.failedTitle')}
                             </h1>
                             <p className="text-slate-600 mb-6">
                                 {message}
                             </p>
                             {orderId && (
                                 <p className="text-sm text-slate-500 mb-6">
-                                    Mã đơn hàng: <strong>{orderId}</strong>
+                                    {t('paymentResult.orderCode')} <strong>{orderId}</strong>
                                 </p>
                             )}
                             <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-8">
                                 <p className="text-amber-700 text-sm">
-                                    Vui lòng kiểm tra lại thông tin thanh toán hoặc thử lại với phương thức khác.
+                                    {t('paymentResult.failedDesc')}
                                 </p>
                             </div>
                         </>
@@ -149,7 +151,7 @@ export function PaymentResult() {
                                 className="flex items-center justify-center gap-2 w-full bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 <Package className="w-5 h-5" />
-                                Xem đơn hàng của tôi
+                                {t('paymentResult.viewOrders')}
                             </Link>
                         ) : (
                             <>
@@ -157,13 +159,13 @@ export function PaymentResult() {
                                     to={`/account?orderId=${orderId}`}
                                     className="flex items-center justify-center gap-2 w-full bg-indigo-600 text-white px-6 py-3 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                                 >
-                                    Thử thanh toán lại
+                                    {t('paymentResult.retryPayment')}
                                 </Link>
                                 <Link
                                     to="/contact-support"
                                     className="flex items-center justify-center gap-2 w-full bg-slate-100 text-slate-700 px-6 py-3 rounded-full font-bold hover:bg-slate-200 transition-colors"
                                 >
-                                    Liên hệ hỗ trợ
+                                    {t('paymentResult.contactSupport')}
                                 </Link>
                             </>
                         )}
@@ -175,7 +177,7 @@ export function PaymentResult() {
                             className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium text-sm transition-colors"
                         >
                             <ArrowRight className="w-4 h-4 rotate-180" />
-                            Quay lại trang chủ
+                            {t('paymentResult.backToHome')}
                         </Link>
                     </div>
                 </div>

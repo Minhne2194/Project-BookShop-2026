@@ -2,19 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Tag, Zap, BookOpen, Gift, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 // ─── Hero Slideshow Banner ───────────────────────────────────────────────────
 
 const SLIDES = [
   {
     id: 1,
-    badge: '🔥 Siêu Khuyến Mãi',
-    title: 'Flash Sale Cuối Tuần',
-    subtitle: 'Giảm đến 50% hàng ngàn đầu sách',
-    description: 'Chỉ còn hôm nay! Nhanh tay sở hữu những tựa sách best-seller với giá cực sốc.',
-    cta: 'Mua ngay',
+    badgeKey: 'slide1Badge',
+    titleKey: 'slide1Title',
+    subtitleKey: 'slide1Sub',
+    descKey: 'slide1Desc',
+    ctaKey: 'slide1Cta',
     ctaLink: '/search?sort=bestseller',
-    tag: 'Tiết kiệm đến 50%',
+    tagKey: 'slide1Tag',
     gradient: 'from-[#1a0533] via-[#2d0a5c] to-[#0f1a3d]',
     accent: '#a855f7',
     accentLight: '#e9d5ff',
@@ -23,13 +24,13 @@ const SLIDES = [
   },
   {
     id: 2,
-    badge: '🆕 Mới Ra Mắt',
-    title: 'Sách Mới Tháng 5/2026',
-    subtitle: 'Hàng trăm tựa sách mới cập bến',
-    description: 'Khám phá những tác phẩm mới nhất từ các tác giả trong nước và quốc tế.',
-    cta: 'Xem ngay',
+    badgeKey: 'slide2Badge',
+    titleKey: 'slide2Title',
+    subtitleKey: 'slide2Sub',
+    descKey: 'slide2Desc',
+    ctaKey: 'slide2Cta',
     ctaLink: '/new-books',
-    tag: 'Freeship đơn từ 149K',
+    tagKey: 'slide2Tag',
     gradient: 'from-[#0c2340] via-[#0f3460] to-[#162040]',
     accent: '#38bdf8',
     accentLight: '#bae6fd',
@@ -38,13 +39,13 @@ const SLIDES = [
   },
   {
     id: 3,
-    badge: '🎁 Ưu Đãi Thành Viên',
-    title: 'Đăng Ký Nhận Voucher',
-    subtitle: 'Giảm ngay 30K cho đơn đầu tiên',
-    description: 'Tạo tài khoản hôm nay và nhận ngay mã giảm giá cho lần mua đầu tiên của bạn.',
-    cta: 'Đăng ký miễn phí',
+    badgeKey: 'slide3Badge',
+    titleKey: 'slide3Title',
+    subtitleKey: 'slide3Sub',
+    descKey: 'slide3Desc',
+    ctaKey: 'slide3Cta',
     ctaLink: '/register',
-    tag: 'Voucher 30.000đ',
+    tagKey: 'slide3Tag',
     gradient: 'from-[#1a2e05] via-[#1f3a0a] to-[#0d2013]',
     accent: '#4ade80',
     accentLight: '#bbf7d0',
@@ -54,6 +55,7 @@ const SLIDES = [
 ];
 
 function HeroBanner() {
+  const { t } = useTranslation();
   const [current, setCurrent] = useState(0);
   const [direction, setDirection] = useState(1);
 
@@ -122,7 +124,7 @@ function HeroBanner() {
                 className="inline-block text-sm font-semibold px-3 py-1 rounded-full mb-3"
                 style={{ background: `${slide.accent}30`, color: slide.accentLight }}
               >
-                {slide.badge}
+                {t(`promoBanner.${slide.badgeKey}`)}
               </motion.span>
 
               <motion.h2
@@ -131,7 +133,7 @@ function HeroBanner() {
                 transition={{ delay: 0.2 }}
                 className="text-3xl md:text-4xl font-bold text-white leading-tight mb-2"
               >
-                {slide.title}
+                {t(`promoBanner.${slide.titleKey}`)}
               </motion.h2>
 
               <motion.p
@@ -141,7 +143,7 @@ function HeroBanner() {
                 className="text-base md:text-lg font-medium mb-2"
                 style={{ color: slide.accentLight }}
               >
-                {slide.subtitle}
+                {t(`promoBanner.${slide.subtitleKey}`)}
               </motion.p>
 
               <motion.p
@@ -150,7 +152,7 @@ function HeroBanner() {
                 transition={{ delay: 0.4 }}
                 className="text-sm text-white/60 mb-6 hidden md:block"
               >
-                {slide.description}
+                {t(`promoBanner.${slide.descKey}`)}
               </motion.p>
 
               <motion.div
@@ -164,13 +166,13 @@ function HeroBanner() {
                   className="px-6 py-3 rounded-full font-bold text-sm text-white transition-all hover:scale-105 hover:shadow-lg shadow-md"
                   style={{ background: slide.accent }}
                 >
-                  {slide.cta}
+                  {t(`promoBanner.${slide.ctaKey}`)}
                 </Link>
                 <span
                   className="text-xs px-3 py-1.5 rounded-full font-medium"
                   style={{ background: `${slide.accent}20`, color: slide.accentLight }}
                 >
-                  🏷 {slide.tag}
+                  🏷 {t(`promoBanner.${slide.tagKey}`)}
                 </span>
               </motion.div>
             </div>
@@ -275,6 +277,7 @@ function CountdownBox({ value, label }: { value: number; label: string }) {
 }
 
 function FlashSaleSection() {
+  const { t } = useTranslation();
   // Target: end of today
   const target = new Date();
   target.setHours(23, 59, 59, 0);
@@ -297,26 +300,26 @@ function FlashSaleSection() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-xl font-bold">Flash Sale</h3>
-              <span className="text-yellow-300 text-sm font-semibold bg-yellow-300/20 px-2 py-0.5 rounded">Hôm nay</span>
+              <h3 className="text-xl font-bold">{t('promoBanner.flashSaleTitle')}</h3>
+              <span className="text-yellow-300 text-sm font-semibold bg-yellow-300/20 px-2 py-0.5 rounded">{t('promoBanner.flashSaleToday')}</span>
             </div>
-            <p className="text-red-200 text-sm">Ưu đãi kết thúc sau</p>
+            <p className="text-red-200 text-sm">{t('promoBanner.flashSaleEndsIn')}</p>
           </div>
         </div>
 
         <div className="flex items-end gap-2">
-          <CountdownBox value={hours} label="Giờ" />
+          <CountdownBox value={hours} label={t('promoBanner.flashSaleHours')} />
           <span className="text-red-300 font-bold text-2xl mb-3">:</span>
-          <CountdownBox value={minutes} label="Phút" />
+          <CountdownBox value={minutes} label={t('promoBanner.flashSaleMinutes')} />
           <span className="text-red-300 font-bold text-2xl mb-3">:</span>
-          <CountdownBox value={seconds} label="Giây" />
+          <CountdownBox value={seconds} label={t('promoBanner.flashSaleSeconds')} />
         </div>
 
         <Link
           to="/search?sort=bestseller"
           className="shrink-0 px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-red-900 font-bold rounded-full text-sm transition-all hover:scale-105 shadow-lg"
         >
-          Mua ngay
+          {t('promoBanner.flashSaleBuyNow')}
         </Link>
       </div>
     </div>
@@ -330,9 +333,9 @@ const PROMO_CARDS = [
     id: 'new',
     icon: BookOpen,
     emoji: '📚',
-    title: 'Sách Mới Nhất',
-    desc: 'Cập nhật mỗi ngày',
-    discount: 'Freeship',
+    titleKey: 'promoCard1Title',
+    descKey: 'promoCard1Desc',
+    discountKey: 'promoCard1Tag',
     bg: 'from-indigo-900 to-blue-900',
     accent: '#818cf8',
     link: '/new-books',
@@ -341,9 +344,9 @@ const PROMO_CARDS = [
     id: 'deal',
     icon: Tag,
     emoji: '🏷',
-    title: 'Deal Hôm Nay',
-    desc: 'Giảm đến 40%',
-    discount: '40% OFF',
+    titleKey: 'promoCard2Title',
+    descKey: 'promoCard2Desc',
+    discountKey: 'promoCard2Tag',
     bg: 'from-orange-900 to-red-900',
     accent: '#fb923c',
     link: '/search?sort=bestseller',
@@ -352,9 +355,9 @@ const PROMO_CARDS = [
     id: 'gift',
     icon: Gift,
     emoji: '🎁',
-    title: 'Gói Quà Tặng',
-    desc: 'Gói quà miễn phí',
-    discount: 'Miễn phí',
+    titleKey: 'promoCard3Title',
+    descKey: 'promoCard3Desc',
+    discountKey: 'promoCard3Tag',
     bg: 'from-pink-900 to-rose-900',
     accent: '#f472b6',
     link: '/search',
@@ -363,9 +366,9 @@ const PROMO_CARDS = [
     id: 'top',
     icon: Star,
     emoji: '⭐',
-    title: 'Top Đánh Giá Cao',
-    desc: '5 sao bởi độc giả',
-    discount: 'HOT',
+    titleKey: 'promoCard4Title',
+    descKey: 'promoCard4Desc',
+    discountKey: 'promoCard4Tag',
     bg: 'from-amber-900 to-yellow-900',
     accent: '#fbbf24',
     link: '/best-sellers',
@@ -373,6 +376,7 @@ const PROMO_CARDS = [
 ];
 
 function PromoCards() {
+  const { t } = useTranslation();
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {PROMO_CARDS.map((card, i) => {
@@ -402,14 +406,14 @@ function PromoCards() {
                 <Icon className="w-5 h-5" style={{ color: card.accent }} />
               </div>
 
-              <h4 className="font-bold text-sm md:text-base leading-tight mb-1">{card.title}</h4>
-              <p className="text-white/60 text-xs mb-3">{card.desc}</p>
+              <h4 className="font-bold text-sm md:text-base leading-tight mb-1">{t(`promoBanner.${card.titleKey}`)}</h4>
+              <p className="text-white/60 text-xs mb-3">{t(`promoBanner.${card.descKey}`)}</p>
 
               <span
                 className="inline-block text-xs font-bold px-2 py-0.5 rounded-full"
                 style={{ background: `${card.accent}30`, color: card.accent }}
               >
-                {card.discount}
+                {t(`promoBanner.${card.discountKey}`)}
               </span>
             </Link>
           </motion.div>
@@ -422,12 +426,13 @@ function PromoCards() {
 // ─── Coupon Banner ────────────────────────────────────────────────────────────
 
 function CouponBanner() {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState<string | null>(null);
 
   const coupons = [
-    { code: 'NEWUSER30', desc: 'Giảm 30.000đ cho đơn đầu tiên', min: 'Đơn từ 150K', color: '#6366f1' },
-    { code: 'BOOK2026', desc: 'Freeship toàn quốc', min: 'Đơn từ 99K', color: '#10b981' },
-    { code: 'FLASH50', desc: 'Giảm 50% cho 1 sản phẩm', min: 'Đơn từ 200K', color: '#f59e0b' },
+    { code: 'NEWUSER30', descKey: 'coupon1Desc', minKey: 'coupon1Min', color: '#6366f1' },
+    { code: 'BOOK2026', descKey: 'coupon2Desc', minKey: 'coupon2Min', color: '#10b981' },
+    { code: 'FLASH50', descKey: 'coupon3Desc', minKey: 'coupon3Min', color: '#f59e0b' },
   ];
 
   const handleCopy = (code: string) => {
@@ -440,8 +445,8 @@ function CouponBanner() {
     <div className="bg-linear-to-br from-slate-900 to-slate-800 rounded-2xl p-5 md:p-6 border border-slate-700">
       <div className="flex items-center gap-2 mb-5">
         <Tag className="w-5 h-5 text-indigo-400" />
-        <h3 className="text-white font-bold text-lg">Mã Giảm Giá</h3>
-        <span className="ml-auto text-slate-400 text-xs">Nhấn để sao chép</span>
+        <h3 className="text-white font-bold text-lg">{t('promoBanner.couponTitle')}</h3>
+        <span className="ml-auto text-slate-400 text-xs">{t('promoBanner.couponCopyHint')}</span>
       </div>
 
       <div className="grid sm:grid-cols-3 gap-3">
@@ -467,11 +472,11 @@ function CouponBanner() {
                 className="text-xs px-2 py-0.5 rounded font-medium"
                 style={{ background: `${c.color}20`, color: c.color }}
               >
-                {copied === c.code ? '✓ Đã copy!' : 'Copy'}
+                {copied === c.code ? t('promoBanner.couponCopied') : t('promoBanner.couponCopy')}
               </span>
             </div>
-            <p className="text-slate-300 text-sm font-medium">{c.desc}</p>
-            <p className="text-slate-500 text-xs mt-1">{c.min}</p>
+            <p className="text-slate-300 text-sm font-medium">{t(`promoBanner.${c.descKey}`)}</p>
+            <p className="text-slate-500 text-xs mt-1">{t(`promoBanner.${c.minKey}`)}</p>
           </button>
         ))}
       </div>

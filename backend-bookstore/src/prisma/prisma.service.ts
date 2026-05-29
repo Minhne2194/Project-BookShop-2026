@@ -2,7 +2,7 @@ import 'dotenv/config'; // <-- DÒNG NÀY SẼ GIẢI QUYẾT TẤT CẢ! (Tự 
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import { createPgPool } from './create-pg-pool';
 
 @Injectable()
 export class PrismaService
@@ -11,7 +11,7 @@ export class PrismaService
 {
   constructor() {
     // Lúc này process.env.DATABASE_URL chắc chắn đã có giá trị!
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = createPgPool();
     const adapter = new PrismaPg(pool);
     super({ adapter });
   }

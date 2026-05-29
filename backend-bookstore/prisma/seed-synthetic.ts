@@ -13,15 +13,15 @@
 
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import { faker } from '@faker-js/faker';
 import * as argon2 from 'argon2';
 import * as crypto from 'crypto';
 import 'dotenv/config';
+import { createPgPool } from '../src/prisma/create-pg-pool';
 
 // ──────────────────────── DB Connection ────────────────────────
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = createPgPool();
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 

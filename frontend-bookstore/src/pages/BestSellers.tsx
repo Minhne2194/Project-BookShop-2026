@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart, TrendingUp } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { SafeImage } from '../components/SafeImage';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
     book_id: string;
@@ -17,6 +18,7 @@ export function BestSellers() {
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const { handleAddToCart } = useCart();
+    const { t, i18n } = useTranslation();
 
     useEffect(() => {
         const fetchBestSellers = async () => {
@@ -28,7 +30,7 @@ export function BestSellers() {
                     setBooks(json.data);
                 }
             } catch (err) {
-                console.error("Lỗi tải sách bán chạy:", err);
+                console.error(t('bestSellers.errorLoading'), err);
             } finally {
                 setLoading(false);
             }
@@ -38,7 +40,12 @@ export function BestSellers() {
     }, []);
 
     const formatPrice = (price: string | number) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
+        const numPrice = Number(price);
+        if (i18n.language === 'en') {
+            const usdPrice = numPrice / 25000;
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdPrice);
+        }
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
     };
 
     return (
@@ -48,8 +55,8 @@ export function BestSellers() {
                     <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-4">
                         <TrendingUp size={32} />
                     </div>
-                    <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Bán Chạy Tuần Này</h1>
-                    <p className="text-slate-500 max-w-2xl mx-auto">Những cuốn sách được cộng đồng độc giả tìm mua nhiều nhất trong tuần qua.</p>
+                    <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">{t('bestSellers.title')}</h1>
+                    <p className="text-slate-500 max-w-2xl mx-auto">{t('bestSellers.subtitle')}</p>
                 </div>
 
                 {loading ? (
@@ -90,7 +97,7 @@ export function BestSellers() {
                                     onClick={() => handleAddToCart(book.book_id)}
                                     className="w-full mt-3 bg-slate-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-rose-600 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <ShoppingCart className="w-4 h-4" /> Mua ngay
+                                    <ShoppingCart className="w-4 h-4" /> {t('bestSellers.buyNow')}
                                 </button>
                             </div>
                         ))}

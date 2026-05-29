@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useTranslation } from 'react-i18next';
 
 export function Register() {
     const [firstName, setFirstName] = useState('');
@@ -12,7 +13,8 @@ export function Register() {
 
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingText, setLoadingText] = useState('Đang xử lý...');
+    const { t } = useTranslation();
+    const [loadingText, setLoadingText] = useState(t('register.processingText'));
 
     const navigate = useNavigate();
     const { setToken, guestId } = useCart();
@@ -22,11 +24,11 @@ export function Register() {
         setError('');
 
         if (password !== confirmPassword) {
-            setError('Mật khẩu không khớp');
+            setError(t('register.errorPasswordMismatch'));
             return;
         }
         setIsLoading(true);
-        setLoadingText('Đang tạo tài khoản...');
+        setLoadingText(t('register.creatingAccountText'));
 
         try {
 
@@ -42,11 +44,11 @@ export function Register() {
 
             if (!registerRes.ok) {
                 const errData = await registerRes.json().catch(() => null);
-                throw new Error(errData?.message || 'Đăng ký thất bại. Email có thể đã tồn tại!');
+                throw new Error(errData?.message || t('register.errorRegisterFailed'));
             }
 
 
-            setLoadingText('Đang thiết lập không gian của bạn...');
+            setLoadingText(t('register.settingUpText'));
             const loginRes = await fetch('http://localhost:3000/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -72,7 +74,7 @@ export function Register() {
             }
 
         } catch (err: any) {
-            setError(err.message || 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+            setError(err.message || t('register.errorNetwork'));
             setIsLoading(false);
         }
     }
@@ -88,13 +90,13 @@ export function Register() {
                         <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin z-10"></div>
                     </div>
                     <h2 className="mt-6 text-xl font-bold text-slate-800 animate-pulse">{loadingText}</h2>
-                    <p className="text-slate-500 mt-2 text-sm">Vui lòng không đóng trình duyệt...</p>
+                    <p className="text-slate-500 mt-2 text-sm">{t('register.doNotClose')}</p>
                 </div>
             )}
 
             <div className="w-full max-w-md relative z-10">
                 <h1 className="text-2xl md:text-3xl font-serif text-slate-800 mb-4 text-left">
-                    Tạo tài khoản mới
+                    {t('register.title')}
                 </h1>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -108,31 +110,31 @@ export function Register() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="block text-sm text-slate-700">Họ</label>
+                                <label className="block text-sm text-slate-700">{t('register.lastName')}</label>
                                 <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" required disabled={isLoading} />
                             </div>
                             <div className="space-y-1">
-                                <label className="block text-sm text-slate-700">Tên</label>
+                                <label className="block text-sm text-slate-700">{t('register.firstName')}</label>
                                 <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
                                     className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" required disabled={isLoading} />
                             </div>
                         </div>
 
                         <div className="space-y-1">
-                            <label className="block text-sm text-slate-700">Email</label>
+                            <label className="block text-sm text-slate-700">{t('register.email')}</label>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" required disabled={isLoading} />
                         </div>
 
                         <div className="space-y-1">
-                            <label className="block text-sm text-slate-700">Mật khẩu</label>
+                            <label className="block text-sm text-slate-700">{t('register.password')}</label>
                             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" required disabled={isLoading} minLength={6} />
                         </div>
 
                         <div className="space-y-1">
-                            <label className="block text-sm text-slate-700">Xác nhận mật khẩu</label>
+                            <label className="block text-sm text-slate-700">{t('register.confirmPassword')}</label>
                             <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
                                 className="w-full px-3 py-2 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500" required disabled={isLoading} minLength={6} />
                         </div>
@@ -141,19 +143,19 @@ export function Register() {
                             <input type="checkbox" id="subscribe" checked={subscribe} onChange={(e) => setSubscribe(e.target.checked)}
                                 className="w-4 h-4 mt-0.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-600 cursor-pointer" disabled={isLoading} />
                             <label htmlFor="subscribe" className="text-sm text-slate-700 cursor-pointer select-none">
-                                Đăng ký nhận bản tin để nhận thông tin về các sách mới và ưu đãi.
+                                {t('register.subscribe')}
                             </label>
                         </div>
 
                         <div className="pt-2">
                             <button type="submit" disabled={isLoading}
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-8 rounded-full transition-colors disabled:opacity-50 flex justify-center uppercase">
-                                TẠO TÀI KHOẢN
+                                {t('register.submitBtn')}
                             </button>
                         </div>
 
                         <div className="text-sm text-slate-600 text-center pt-2">
-                            Đã có tài khoản? <Link to="/login" className="text-indigo-600 font-medium hover:underline">Đăng nhập ngay</Link>
+                            {t('register.alreadyHaveAccount')}<Link to="/login" className="text-indigo-600 font-medium hover:underline">{t('register.loginNow')}</Link>
                         </div>
                     </form>
                 </div>

@@ -5,6 +5,7 @@ import { useToast } from '../components/Toast';
 import { Star, Truck, ShieldCheck, ArrowLeft, ShoppingBag, Send, CheckCircle, ZoomIn, X, ChevronLeft, ChevronRight, Images, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
     book_id: string;
@@ -42,6 +43,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
     const [activeIdx, setActiveIdx] = useState(0);
     const [lightboxOpen, setLightboxOpen] = useState(false);
     const [lightboxIdx, setLightboxIdx] = useState(0);
+    const { t } = useTranslation();
 
     const openLightbox = (idx: number) => { setLightboxIdx(idx); setLightboxOpen(true); };
     const closeLightbox = useCallback(() => setLightboxOpen(false), []);
@@ -78,8 +80,8 @@ function ProductGallery({ cover_url, extra_images, title }: {
                     >
                         <SafeImage
                             src={allImages[activeIdx]}
-                            alt={`${title} - ảnh ${activeIdx + 1}`}
-                            className="w-full h-full object-contain mix-blend-multiply"
+                            alt={`${title} - ${t('bookDetail.ariaImagePrefix')} ${activeIdx + 1}`}
+                            className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal"
                         />
                     </motion.div>
                 </AnimatePresence>
@@ -109,12 +111,12 @@ function ProductGallery({ cover_url, extra_images, title }: {
                                     ? 'border-indigo-500 shadow-md shadow-indigo-100 scale-105'
                                     : 'border-slate-200 opacity-60 hover:opacity-100 hover:border-slate-400'
                                 }`}
-                            aria-label={`Xem ảnh ${i + 1}`}
+                            aria-label={`${t('bookDetail.ariaThumb')} ${i + 1}`}
                         >
                             <SafeImage
                                 src={img}
                                 alt={`Thumbnail ${i + 1}`}
-                                className="w-full h-full object-contain p-1 mix-blend-multiply"
+                                className="w-full h-full object-contain p-1 mix-blend-multiply dark:mix-blend-normal"
                             />
                         </button>
                     ))}
@@ -135,7 +137,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
                         <button
                             onClick={closeLightbox}
                             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
-                            aria-label="Đóng"
+                            aria-label={t('bookDetail.ariaClose')}
                         >
                             <X className="w-5 h-5" />
                         </button>
@@ -145,7 +147,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
                             <button
                                 onClick={e => { e.stopPropagation(); lbPrev(); }}
                                 className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
-                                aria-label="Ảnh trước"
+                                aria-label={t('bookDetail.ariaPrev')}
                             >
                                 <ChevronLeft className="w-6 h-6" />
                             </button>
@@ -163,7 +165,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
                         >
                             <SafeImage
                                 src={allImages[lightboxIdx]}
-                                alt={`${title} - ảnh ${lightboxIdx + 1}`}
+                                alt={`${title} - ${t('bookDetail.ariaImagePrefix')} ${lightboxIdx + 1}`}
                                 className="w-full h-full object-contain max-h-[80vh] rounded-xl"
                             />
                         </motion.div>
@@ -173,7 +175,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
                             <button
                                 onClick={e => { e.stopPropagation(); lbNext(); }}
                                 className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors z-10"
-                                aria-label="Ảnh tiếp"
+                                aria-label={t('bookDetail.ariaNext')}
                             >
                                 <ChevronRight className="w-6 h-6" />
                             </button>
@@ -191,7 +193,7 @@ function ProductGallery({ cover_url, extra_images, title }: {
                                             width: i === lightboxIdx ? '24px' : '8px',
                                             background: i === lightboxIdx ? 'white' : 'rgba(255,255,255,0.3)',
                                         }}
-                                        aria-label={`Ảnh ${i + 1}`}
+                                        aria-label={`${t('bookDetail.ariaImagePrefix')} ${i + 1}`}
                                     />
                                 ))}
                             </div>
@@ -230,9 +232,6 @@ interface Review {
 }
 
 const API = 'http://localhost:3000';
-
-const formatPrice = (price: string | number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
 
 const StarRating = ({ value, onChange }: { value: number; onChange?: (v: number) => void }) => (
     <div className="flex gap-1">
@@ -279,6 +278,16 @@ export function BookDetail() {
 
     const { token, fetchCart, handleAddToCart: handleAddToCartGlobal } = useCart();
     const { toast } = useToast();
+    const { t, i18n } = useTranslation();
+
+    const formatPrice = (price: string | number) => {
+        const numPrice = Number(price);
+        if (i18n.language === 'en') {
+            const usdPrice = numPrice / 25000;
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdPrice);
+        }
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
+    };
 
 
     useEffect(() => {
@@ -332,19 +341,19 @@ export function BookDetail() {
 
     const handleAddToCart = async () => {
         if (!book) return;
-        if (!token) { toast('Vui lòng đăng nhập để thêm vào giỏ hàng!', 'info'); return; }
+        if (!token) { toast(t('bookDetail.loginToAddToCart'), 'info'); return; }
         const res = await fetch(`${API}/cart/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ bookId: book.book_id, quantity }),
         });
-        if (res.ok) { fetchCart(); toast(`Đã thêm ${quantity} cuốn "${book.title}" vào giỏ!`, 'success'); }
-        else toast('Có lỗi xảy ra khi thêm vào giỏ hàng.', 'error');
+        if (res.ok) { fetchCart(); toast(t('bookDetail.addedToCart', { qty: quantity, title: book.title }), 'success'); }
+        else toast(t('bookDetail.errorAddToCart'), 'error');
     };
 
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) { toast('Vui lòng đăng nhập để đánh giá!', 'info'); return; }
+        if (!token) { toast(t('bookDetail.loginToReview'), 'info'); return; }
         if (!book) return;
         setSubmitting(true);
         try {
@@ -360,7 +369,7 @@ export function BookDetail() {
                 setTimeout(() => setSubmitSuccess(false), 4000);
             } else {
                 const err = await res.json();
-                toast(err.message || 'Không thể gửi đánh giá!', 'error');
+                toast(err.message || t('bookDetail.errorReview'), 'error');
             }
         } finally {
             setSubmitting(false);
@@ -375,9 +384,9 @@ export function BookDetail() {
 
     if (!book) return (
         <div className="bg-slate-50 min-h-screen py-20 text-center flex flex-col items-center">
-            <h2 className="text-2xl font-bold text-slate-800 mb-4">Không tìm thấy sách.</h2>
+            <h2 className="text-2xl font-bold text-slate-800 mb-4">{t('bookDetail.notFound')}</h2>
             <Link to="/search" className="flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium">
-                <ArrowLeft className="w-4 h-4" /> Quay lại cửa hàng
+                <ArrowLeft className="w-4 h-4" /> {t('bookDetail.backToStore')}
             </Link>
         </div>
     );
@@ -389,7 +398,7 @@ export function BookDetail() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 <Link to="/search" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-8 transition-colors font-medium">
-                    <ArrowLeft className="w-5 h-5" /> Quay lại tìm kiếm
+                    <ArrowLeft className="w-5 h-5" /> {t('bookDetail.backToSearch')}
                 </Link>
 
                 <div className="grid md:grid-cols-12 gap-8 mb-12">
@@ -414,19 +423,19 @@ export function BookDetail() {
                         <div className="text-sm font-semibold text-indigo-600 mb-2 uppercase tracking-wider flex flex-wrap gap-2">
                             {book.categories && book.categories.length > 0
                                 ? Array.from(new Set(book.categories.flatMap(cat => cat.parent ? [cat.parent.name, cat.name] : [cat.name]))).join(' • ')
-                                : (book.category || 'Sách chuyên mục')}
+                                : (book.category || t('bookDetail.category'))}
                         </div>
                         <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 leading-tight">
                             {book.title}
                         </h1>
                         <p className="text-lg text-slate-600 mb-6 font-medium">
-                            Tác giả: <span className="text-indigo-600">{book.author || 'Đang cập nhật'}</span>
+                            {t('bookDetail.author')} <span className="text-indigo-600">{book.author || t('bookDetail.updating')}</span>
                         </p>
 
                         <div className="flex items-center gap-2 mb-8 pb-8 border-b border-slate-100">
                             <StarRating value={Math.round(Number(book.avg_rating) || 0)} />
                             <span className="text-slate-700 font-bold">{Number(book.avg_rating || 0).toFixed(1)}</span>
-                            <span className="text-slate-400">({book.rating_count || 0} đánh giá)</span>
+                            <span className="text-slate-400">({book.rating_count || 0} {t('bookDetail.reviewsCount')})</span>
                         </div>
 
                         <div className="flex items-end gap-4 mb-8">
@@ -446,7 +455,7 @@ export function BookDetail() {
                                 onClick={handleAddToCart}
                                 className="w-full sm:flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
-                                <ShoppingBag className="w-5 h-5" /> Thêm vào giỏ hàng
+                                <ShoppingBag className="w-5 h-5" /> {t('bookDetail.addToCart')}
                             </button>
                         </div>
 
@@ -455,7 +464,7 @@ export function BookDetail() {
                                 onClick={() => setIsDescExpanded(!isDescExpanded)}
                                 className="w-full flex items-center justify-between text-2xl font-serif font-bold text-slate-900 mb-4"
                             >
-                                Mô tả sách
+                                {t('bookDetail.description')}
                                 {isDescExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                             </button>
                             
@@ -468,7 +477,7 @@ export function BookDetail() {
                                         className="overflow-hidden"
                                     >
                                         <div className="text-slate-600 leading-relaxed pb-4 whitespace-pre-wrap">
-                                            {book.description || 'Chúng tôi đang cập nhật thêm nội dung giới thiệu cho cuốn sách này.'}
+                                            {book.description || t('bookDetail.descriptionPlaceholder')}
                                         </div>
                                     </motion.div>
                                 )}
@@ -476,18 +485,18 @@ export function BookDetail() {
                         </div>
 
                         <div className="bg-slate-50 p-6 rounded-2xl mb-8 border border-slate-100">
-                            <h3 className="font-bold text-slate-900 text-lg mb-4">Thông tin chi tiết</h3>
+                            <h3 className="font-bold text-slate-900 text-lg mb-4">{t('bookDetail.details')}</h3>
                             <div className="grid grid-cols-2 gap-y-5 gap-x-4 text-sm">
                                 {[
-                                    ['Mã ISBN', book.isbn],
-                                    ['Nhà xuất bản', book.publisher],
-                                    ['Năm xuất bản', book.publish_year],
-                                    ['Số trang', book.page_count ? `${book.page_count} trang` : null],
-                                    ['Ngôn ngữ', book.language === 'vi' ? 'Tiếng Việt' : book.language === 'en' ? 'Tiếng Anh' : book.language],
+                                    [t('bookDetail.isbn'), book.isbn],
+                                    [t('bookDetail.publisher'), book.publisher],
+                                    [t('bookDetail.publishYear'), book.publish_year],
+                                    [t('bookDetail.pages'), book.page_count ? t('bookDetail.pagesCount', { count: book.page_count }) : null],
+                                    [t('bookDetail.language'), book.language === 'vi' ? t('bookDetail.vietnamese') : book.language === 'en' ? t('bookDetail.english') : book.language],
                                 ].map(([label, val]) => (
                                     <div key={label}>
                                         <span className="text-slate-500 block mb-1">{label}</span>
-                                        <span className="font-medium text-slate-900">{val || 'Đang cập nhật'}</span>
+                                        <span className="font-medium text-slate-900">{val || t('bookDetail.updating')}</span>
                                     </div>
                                 ))}
                             </div>
@@ -496,11 +505,11 @@ export function BookDetail() {
                         <div className="flex flex-col gap-3 p-6 bg-slate-50 rounded-2xl border border-slate-100 mt-auto">
                             <div className="flex items-center gap-3 text-slate-700">
                                 <Truck className="w-5 h-5 text-indigo-600" />
-                                <span className="font-medium">Miễn phí giao hàng cho đơn từ 250k</span>
+                                <span className="font-medium">{t('bookDetail.freeShipping')}</span>
                             </div>
                             <div className="flex items-center gap-3 text-slate-700">
                                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                                <span className="font-medium">Sách chính hãng 100%, đổi trả trong 7 ngày</span>
+                                <span className="font-medium">{t('bookDetail.genuineReturn')}</span>
                             </div>
                         </div>
                     </motion.div>
@@ -510,15 +519,15 @@ export function BookDetail() {
                 <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-8">
                         <h2 className="text-2xl font-bold text-slate-900">
-                            Đánh giá từ độc giả
-                            <span className="ml-2 text-base font-normal text-slate-400">({reviewTotal} đánh giá)</span>
+                            {t('bookDetail.readerReviews')}
+                            <span className="ml-2 text-base font-normal text-slate-400">({reviewTotal} {t('bookDetail.reviewsCount')})</span>
                         </h2>
                         {token && !showReviewForm && (
                             <button
                                 onClick={() => setShowReviewForm(true)}
                                 className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-indigo-700 transition-colors text-sm"
                             >
-                                <Send className="w-4 h-4" /> Viết đánh giá
+                                <Send className="w-4 h-4" /> {t('bookDetail.writeReview')}
                             </button>
                         )}
                     </div>
@@ -531,7 +540,7 @@ export function BookDetail() {
                                 className="mb-6 flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl p-4"
                             >
                                 <CheckCircle className="w-5 h-5 shrink-0" />
-                                <span>Cảm ơn bạn đã đánh giá! Đánh giá của bạn sẽ hiển thị sau khi được kiểm duyệt.</span>
+                                <span>{t('bookDetail.reviewThanks')}</span>
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -544,24 +553,24 @@ export function BookDetail() {
                                 onSubmit={handleSubmitReview}
                                 className="mb-8 bg-indigo-50 rounded-2xl p-6 border border-indigo-100"
                             >
-                                <h3 className="font-bold text-slate-900 mb-4">Đánh giá của bạn</h3>
+                                <h3 className="font-bold text-slate-900 mb-4">{t('bookDetail.yourReview')}</h3>
                                 <div className="mb-4">
-                                    <label className="block text-sm text-slate-600 mb-2">Số sao</label>
+                                    <label className="block text-sm text-slate-600 mb-2">{t('bookDetail.stars')}</label>
                                     <StarRating value={newRating} onChange={setNewRating} />
                                 </div>
                                 <div className="mb-4">
-                                    <label className="block text-sm text-slate-600 mb-2">Tiêu đề (tuỳ chọn)</label>
+                                    <label className="block text-sm text-slate-600 mb-2">{t('bookDetail.titleOptional')}</label>
                                     <input
                                         type="text" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                                        placeholder="Tóm tắt cảm nhận của bạn..."
+                                        placeholder={t('bookDetail.titlePlaceholder')}
                                         className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                                     />
                                 </div>
                                 <div className="mb-4">
-                                    <label className="block text-sm text-slate-600 mb-2">Nội dung đánh giá</label>
+                                    <label className="block text-sm text-slate-600 mb-2">{t('bookDetail.reviewContent')}</label>
                                     <textarea
                                         value={newBody} onChange={e => setNewBody(e.target.value)}
-                                        placeholder="Chia sẻ trải nghiệm đọc sách của bạn..."
+                                        placeholder={t('bookDetail.reviewPlaceholder')}
                                         rows={4}
                                         className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
                                     />
@@ -570,12 +579,12 @@ export function BookDetail() {
                                     <button type="submit" disabled={submitting}
                                         className="bg-indigo-600 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors text-sm"
                                     >
-                                        {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                                        {submitting ? t('bookDetail.sending') : t('bookDetail.submitReview')}
                                     </button>
                                     <button type="button" onClick={() => setShowReviewForm(false)}
                                         className="text-slate-500 hover:text-slate-700 px-4 py-2.5 rounded-full text-sm transition-colors"
                                     >
-                                        Huỷ
+                                        {t('bookDetail.cancel')}
                                     </button>
                                 </div>
                             </motion.form>
@@ -590,7 +599,7 @@ export function BookDetail() {
                     ) : reviews.length === 0 ? (
                         <div className="text-center py-12 text-slate-400">
                             <Star className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                            <p>Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
+                            <p>{t('bookDetail.noReviews')}</p>
                         </div>
                     ) : (
                         <div className="space-y-6">
@@ -602,7 +611,7 @@ export function BookDetail() {
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <div>
-                                            <span className="font-semibold text-slate-900">{review.user?.full_name || 'Ẩn danh'}</span>
+                                            <span className="font-semibold text-slate-900">{review.user?.full_name || t('bookDetail.anonymous')}</span>
                                             <span className="text-slate-400 text-sm ml-2">{new Date(review.created_at).toLocaleDateString('vi-VN')}</span>
                                         </div>
                                         <StarRating value={review.rating} />
@@ -610,7 +619,7 @@ export function BookDetail() {
                                     {review.title && <p className="font-semibold text-slate-800 mb-1">{review.title}</p>}
                                     {review.body && <p className="text-slate-600 text-sm leading-relaxed">{review.body}</p>}
                                     {review.helpful_count > 0 && (
-                                        <p className="text-xs text-slate-400 mt-2">{review.helpful_count} người thấy hữu ích</p>
+                                        <p className="text-xs text-slate-400 mt-2">{t('bookDetail.helpfulCount', { count: review.helpful_count })}</p>
                                     )}
                                 </motion.div>
                             ))}
@@ -637,7 +646,7 @@ export function BookDetail() {
                 {similarBooks.length > 0 && (
                     <div className="mt-8 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
                         <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-slate-900">Sách tương tự</h2>
+                            <h2 className="text-2xl font-bold text-slate-900">{t('bookDetail.similarBooks')}</h2>
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => similarScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })}
@@ -660,7 +669,7 @@ export function BookDetail() {
                                         <SafeImage
                                             src={sb.cover_url || 'https://placehold.co/200x300'}
                                             alt={sb.title}
-                                            className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                                            className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-300"
                                         />
                                     </Link>
                                     <div className="p-3 flex flex-col flex-1">
@@ -675,13 +684,13 @@ export function BookDetail() {
                                             </div>
                                         )}
                                         <p className="text-indigo-600 font-bold text-sm mt-auto">
-                                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(sb.price)}
+                                            {formatPrice(sb.price)}
                                         </p>
                                         <button
                                             onClick={() => handleAddToCartGlobal(sb.book_id)}
                                             className="mt-2 w-full bg-slate-900 text-white py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-600 transition-colors flex items-center justify-center gap-1"
                                         >
-                                            <ShoppingCart className="w-3 h-3" /> Thêm vào giỏ
+                                            <ShoppingCart className="w-3 h-3" /> {t('bookDetail.addToCartShort')}
                                         </button>
                                     </div>
                                 </div>

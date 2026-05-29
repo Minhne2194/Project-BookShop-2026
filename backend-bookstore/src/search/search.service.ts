@@ -607,11 +607,16 @@ export class SearchService implements OnModuleInit {
     if (maxPrice !== undefined) conditions.push(`b.price <= ${maxPrice}`);
     if (rating !== undefined) conditions.push(`b.avg_rating >= ${rating}`);
     if (categoryFilter) {
+      const escapedCategory = categoryFilter.replace(/'/g, "''");
       conditions.push(`EXISTS (
         SELECT 1 FROM book_categories bc2
         JOIN categories cat2 ON bc2.category_id = cat2.category_id
         WHERE bc2.book_id = b.book_id
-          AND (cat2.category_id::text = '${categoryFilter}' OR cat2.slug = '${categoryFilter}')
+          AND (
+            cat2.category_id::text = '${escapedCategory}'
+            OR cat2.slug = '${escapedCategory}'
+            OR lower(cat2.name) = lower('${escapedCategory}')
+          )
       )`);
     }
     if (queryText) {
@@ -724,14 +729,19 @@ export class SearchService implements OnModuleInit {
       if (maxPrice !== undefined) where.price.lte = maxPrice;
     }
     if (filters.category) {
+      const category = filters.category.trim();
+      const categoryConditions: any[] = [
+        { slug: category },
+        { name: { equals: category, mode: 'insensitive' } },
+      ];
+      if (this.isUuid(category)) {
+        categoryConditions.unshift({ category_id: category });
+      }
+
       where.book_categories = {
         some: {
           category: {
-            OR: [
-              { category_id: filters.category },
-              { slug: filters.category },
-              { name: { equals: filters.category, mode: 'insensitive' } },
-            ],
+            OR: categoryConditions,
           },
         },
       };
@@ -1021,6 +1031,12 @@ export class SearchService implements OnModuleInit {
     const numberValue = Number(value);
     if (!Number.isInteger(numberValue) || numberValue < 1) return fallback;
     return numberValue;
+  }
+
+  private isUuid(value: string) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
   }
 
   private errorMessage(error: unknown) {

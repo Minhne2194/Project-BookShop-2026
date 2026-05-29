@@ -6,6 +6,7 @@ import confetti from 'canvas-confetti';
 import { CheckCircle2, ArrowLeft, Wallet, CreditCard, Building2, Tag, X, QrCode } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SafeImage } from '../components/SafeImage';
+import { useTranslation, Trans } from 'react-i18next';
 
 interface Book {
     book_id: string;
@@ -28,6 +29,7 @@ export function Checkout() {
     const { toast } = useToast();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { t, i18n } = useTranslation();
 
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -126,7 +128,7 @@ export function Checkout() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) {
-            toast("Vui lòng đăng nhập để thanh toán!", 'info');
+            toast(t('checkout.loginRequired'), 'info');
             return;
         }
 
@@ -164,11 +166,11 @@ export function Checkout() {
                 }
             } else {
                 const err = await res.json();
-                toast(`Lỗi: ${err.message || 'Không thể đặt hàng'}`, 'error');
+                toast(t('checkout.errorOrder', { message: err.message || 'Không thể đặt hàng' }), 'error');
             }
         } catch (error) {
             console.error(error);
-            toast("Có lỗi xảy ra, vui lòng thử lại!", 'error');
+            toast(t('checkout.errorGeneral'), 'error');
         } finally {
             setIsSubmitting(false);
         }
@@ -205,15 +207,15 @@ export function Checkout() {
                     // Redirect to payment gateway
                     window.location.href = data.payUrl;
                 } else {
-                    toast('Không thể khởi tạo thanh toán. Vui lòng thử lại.', 'error');
+                    toast(t('checkout.errorInitPayment'), 'error');
                 }
             } else {
                 const err = await res.json();
-                toast(`Lỗi thanh toán: ${err.message || 'Không thể khởi tạo thanh toán'}`, 'error');
+                toast(t('checkout.errorPayment', { message: err.message || 'Không thể khởi tạo thanh toán' }), 'error');
             }
         } catch (error) {
             console.error(error);
-            toast('Có lỗi xảy ra khi xử lý thanh toán!', 'error');
+            toast(t('checkout.errorPaymentGeneral'), 'error');
         } finally {
             setIsProcessingPayment(false);
         }
@@ -237,7 +239,12 @@ export function Checkout() {
     };
 
     const formatPrice = (price: string | number) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
+        const numPrice = Number(price);
+        if (i18n.language === 'en') {
+            const usdPrice = numPrice / 25000;
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdPrice);
+        }
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
     };
 
     const getPaymentMethodIcon = (method: string) => {
@@ -260,17 +267,17 @@ export function Checkout() {
     const getPaymentMethodName = (method: string) => {
         switch (method) {
             case 'cod':
-                return 'Thanh toán khi nhận hàng (COD)';
+                return t('checkout.methodCod');
             case 'bank_transfer':
-                return 'Chuyển khoản qua ngân hàng';
+                return t('checkout.methodBank');
             case 'momo':
-                return 'Ví điện tử MoMo';
+                return t('checkout.methodMomo');
             case 'vnpay':
-                return 'Cổng thanh toán VNPay';
+                return t('checkout.methodVnpay');
             case 'payos':
-                return 'PayOS (QR Code / Chuyển khoản)';
+                return t('checkout.methodPayos');
             default:
-                return 'Thanh toán khi nhận hàng';
+                return t('checkout.methodCod');
         }
     };
 
@@ -290,12 +297,12 @@ export function Checkout() {
             const data = await res.json();
             if (data.valid) {
                 setAppliedPromo({ code: promoCode.trim().toUpperCase(), discount: data.discount, type: data.type, description: data.description });
-                toast(`${data.description} — đã áp dụng mã ${promoCode.trim().toUpperCase()}`, 'success');
+                toast(t('checkout.appliedPromoToast', { desc: data.description, code: promoCode.trim().toUpperCase() }), 'success');
             } else {
-                toast(data.message || 'Mã không hợp lệ.', 'error');
+                toast(data.message || t('checkout.invalidPromo'), 'error');
             }
         } catch {
-            toast('Không thể kiểm tra mã. Vui lòng thử lại.', 'error');
+            toast(t('checkout.checkPromoError'), 'error');
         } finally {
             setIsValidatingPromo(false);
         }
@@ -316,12 +323,14 @@ export function Checkout() {
                 >
                     <CheckCircle2 className="w-24 h-24 text-emerald-500 mb-6" />
                 </motion.div>
-                <h1 className="text-3xl font-serif font-bold text-slate-900 mb-4 text-center">Đặt hàng thành công!</h1>
+                <h1 className="text-3xl font-serif font-bold text-slate-900 mb-4 text-center">{t('checkout.successTitle')}</h1>
                 <p className="text-slate-600 mb-8 max-w-md text-center leading-relaxed">
-                    Cảm ơn <strong>{formData.name}</strong> đã mua sắm tại BookStore 2026. Đơn hàng của bạn sẽ được giao đến địa chỉ <strong>{formData.address}</strong> trong thời gian sớm nhất.
+                    <Trans i18nKey="checkout.successMessage" values={{ name: formData.name, address: formData.address }}>
+                        Cảm ơn <strong>{{name: formData.name}}</strong> đã mua sắm tại BookStore 2026. Đơn hàng của bạn sẽ được giao đến địa chỉ <strong>{{address: formData.address}}</strong> trong thời gian sớm nhất.
+                    </Trans>
                 </p>
                 <Link to="/" className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">
-                    Tiếp tục mua sắm
+                    {t('checkout.continueShopping')}
                 </Link>
             </div>
         );
@@ -339,29 +348,29 @@ export function Checkout() {
         <div className="min-h-screen bg-slate-50 py-12">
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
                 <Link to="/cart" className="inline-flex items-center gap-2 text-slate-500 hover:text-indigo-600 mb-8 transition-colors font-medium">
-                    <ArrowLeft className="w-4 h-4" /> Quay lại giỏ hàng
+                    <ArrowLeft className="w-4 h-4" /> {t('checkout.backToCart')}
                 </Link>
-                <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">Thanh toán</h1>
-
+                <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">{t('checkout.checkoutTitle')}</h1>
+                
                 <div className="grid md:grid-cols-2 gap-8">
                     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 h-max">
-                        <h2 className="text-xl font-bold text-slate-900 mb-6">Thông tin giao hàng</h2>
+                        <h2 className="text-xl font-bold text-slate-900 mb-6">{t('checkout.shippingInfo')}</h2>
                         <form onSubmit={handleSubmit} id="checkout-form" className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Họ tên</label>
-                                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Nguyễn Văn A" />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('checkout.fullName')}</label>
+                                <input required type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder={t('checkout.fullNamePlaceholder')} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Số điện thoại</label>
-                                <input required type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="0901234567" />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('checkout.phone')}</label>
+                                <input required type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder={t('checkout.phonePlaceholder')} />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Địa chỉ giao hàng</label>
-                                <textarea required value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none h-24" placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố" />
+                                <label className="block text-sm font-medium text-slate-700 mb-1">{t('checkout.address')}</label>
+                                <textarea required value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none h-24" placeholder={t('checkout.addressPlaceholder')} />
                             </div>
-
+                            
                             <div className="pt-4">
-                                <label className="block text-sm font-medium text-slate-700 mb-3">Phương thức thanh toán</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-3">{t('checkout.paymentMethod')}</label>
                                 <div className="space-y-2">
                                     <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
                                         <input type="radio" name="payment" value="cod" checked={formData.paymentMethod === 'cod'} onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })} className="text-indigo-600 focus:ring-indigo-500 w-4 h-4" />
@@ -395,8 +404,8 @@ export function Checkout() {
 
                     <div>
                         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 sticky top-24">
-                            <h2 className="text-xl font-bold text-slate-900 mb-6">Đơn hàng ({cartDetails.length} sản phẩm)</h2>
-
+                            <h2 className="text-xl font-bold text-slate-900 mb-6">{t('checkout.orderSummary', { count: cartDetails.length })}</h2>
+                            
                             <div className="mb-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                 <div className="space-y-6 pt-2">
                                     {cartDetails.map(item => (
@@ -418,11 +427,11 @@ export function Checkout() {
 
                             <div className="border-t border-slate-100 pt-4 mb-6 space-y-2">
                                 <div className="flex justify-between text-slate-600 text-sm">
-                                    <span>Tạm tính</span>
+                                    <span>{t('checkout.subtotal')}</span>
                                     <span className="font-medium">{formatPrice(subtotal)}</span>
                                 </div>
                                 <div className="flex justify-between text-slate-600 text-sm">
-                                    <span>Phí vận chuyển</span>
+                                    <span>{t('checkout.shippingFee')}</span>
                                     {appliedPromo && appliedPromo.type === 'free_shipping' ? (
                                         <div className="flex items-center gap-2">
                                             <span className="text-slate-400 line-through">{formatPrice(baseShippingFee)}</span>
@@ -434,7 +443,7 @@ export function Checkout() {
                                 </div>
                                 {appliedPromo && appliedPromo.type !== 'free_shipping' && (
                                     <div className="flex justify-between text-emerald-600 text-sm">
-                                        <span>Giảm giá</span>
+                                        <span>{t('checkout.discount')}</span>
                                         <span className="font-medium">-{formatPrice(calculatedDiscount)}</span>
                                     </div>
                                 )}
@@ -443,7 +452,7 @@ export function Checkout() {
                             {appliedPromo && (
                                 <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
                                     <CheckCircle2 className="w-4 h-4" />
-                                    <span>Đã áp dụng <strong>{appliedPromo.code}</strong> — {appliedPromo.description}</span>
+                                    <span>{t('checkout.appliedPromoText')}<strong>{appliedPromo.code}</strong> — {appliedPromo.description}</span>
                                     <button type="button" onClick={handleRemovePromo} className="ml-auto p-0.5 hover:bg-emerald-200 rounded transition-colors">
                                         <X className="w-4 h-4" />
                                     </button>
@@ -451,7 +460,7 @@ export function Checkout() {
                             )}
 
                             <div className="flex justify-between items-end mb-4">
-                                <span className="font-bold text-slate-900">Tổng cộng</span>
+                                <span className="font-bold text-slate-900">{t('checkout.total')}</span>
                                 <span className="text-2xl font-bold text-indigo-600">{formatPrice(totalAmount)}</span>
                             </div>
 
@@ -464,7 +473,7 @@ export function Checkout() {
                                             value={promoCode}
                                             onChange={(e) => setPromoCode(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
-                                            placeholder="Mã khuyến mãi"
+                                            placeholder={t('checkout.promoCodePlaceholder')}
                                             disabled={!!appliedPromo}
                                             className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
                                         />
@@ -476,7 +485,7 @@ export function Checkout() {
                                             disabled={isValidatingPromo || !promoCode.trim()}
                                             className="px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         >
-                                            {isValidatingPromo ? '...' : 'Áp dụng'}
+                                            {isValidatingPromo ? '...' : t('checkout.apply')}
                                         </button>
                                     ) : null}
                                 </div>
@@ -489,15 +498,15 @@ export function Checkout() {
                                 className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white h-12 rounded-full font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed"
                             >
                                 {isSubmitting || isProcessingPayment ? (
-                                    <span className="animate-pulse">Đang xử lý...</span>
+                                    <span className="animate-pulse">{t('checkout.processing')}</span>
                                 ) : (
-                                    <>Đặt hàng <CheckCircle2 className="w-5 h-5" /></>
+                                    <>{t('checkout.placeOrder')} <CheckCircle2 className="w-5 h-5" /></>
                                 )}
                             </button>
 
                             {(formData.paymentMethod === 'momo' || formData.paymentMethod === 'vnpay' || formData.paymentMethod === 'payos' || formData.paymentMethod === 'bank_transfer') && (
                                 <p className="text-xs text-slate-500 mt-3 text-center">
-                                    Bạn sẽ được chuyển đến trang thanh toán của {getPaymentMethodName(formData.paymentMethod)} để hoàn tất giao dịch.
+                                    {t('checkout.redirectNote', { method: getPaymentMethodName(formData.paymentMethod) })}
                                 </p>
                             )}
                         </div>

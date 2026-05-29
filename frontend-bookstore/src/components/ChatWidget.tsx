@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { MessageCircle, X, Send, Bot, User, Minimize2, Loader2, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const API = 'http://localhost:3000';
 
@@ -34,6 +35,7 @@ function parseMarkdown(text: string): string {
 }
 
 function MessageBubble({ msg }: { msg: Message }) {
+  const { t } = useTranslation();
   const isBot = msg.role === 'assistant';
   return (
     <div style={{ display: 'flex', gap: '10px', flexDirection: isBot ? 'row' : 'row-reverse', alignItems: 'flex-start' }}>
@@ -54,7 +56,7 @@ function MessageBubble({ msg }: { msg: Message }) {
         {msg.isStreaming && msg.content === '' ? (
           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8' }}>
             <Loader2 style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: 12 }}>Đang suy nghĩ...</span>
+            <span style={{ fontSize: 12 }}>{t('chatWidget.thinking')}</span>
           </span>
         ) : isBot ? (
           <span dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.content) }} />
@@ -70,6 +72,7 @@ function MessageBubble({ msg }: { msg: Message }) {
 }
 
 export function ChatWidget() {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -97,7 +100,7 @@ export function ChatWidget() {
     if (messages.length === 0) {
       setMessages([{
         id: 'welcome', role: 'assistant',
-        content: 'Xin chào! Tôi là trợ lý AI của **Modern Book** 📚\n\nTôi có thể giúp bạn:\n• 🔍 **Tìm sách** theo chủ đề, giá, tác giả\n• 📦 **Tra cứu đơn hàng** của bạn\n• 💡 **Gợi ý sách hay** phù hợp sở thích\n\nBạn cần gì hôm nay?',
+        content: t('chatWidget.welcomeMessage'),
       }]);
     }
   }, [isOpen]);
@@ -151,7 +154,7 @@ export function ChatWidget() {
       }
       setMessages(p => p.map(m => m.id === bid ? { ...m, isStreaming: false } : m));
     } catch (e: any) {
-      const msg = e.name === 'AbortError' ? '⏹ Đã dừng.' : '❌ Có lỗi. Vui lòng thử lại.';
+      const msg = e.name === 'AbortError' ? t('chatWidget.stopped') : t('chatWidget.errorTryAgain');
       setMessages(p => p.map(m => m.id === bid ? { ...m, content: msg, isStreaming: false } : m));
     } finally { setIsLoading(false); }
   }, [isLoading, messages, token]);
@@ -162,7 +165,7 @@ export function ChatWidget() {
       <button
         id="chat-widget-toggle"
         onClick={() => setIsOpen(o => !o)}
-        aria-label="Mở chatbot"
+        aria-label={t('chatWidget.openChatbot')}
         style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
           width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
@@ -209,12 +212,12 @@ export function ChatWidget() {
             </div>
             <div style={{ flex: 1 }}>
               <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: 'white', lineHeight: 1 }}>Modern Book AI</p>
-              <p style={{ margin: 0, fontSize: 11, color: 'rgba(199,210,254,1)', marginTop: 2 }}>Trợ lý mua sắm thông minh</p>
+              <p style={{ margin: 0, fontSize: 11, color: 'rgba(199,210,254,1)', marginTop: 2 }}>{t('chatWidget.assistantTitle')}</p>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
               {[
-                { onClick: () => { setMessages([]); setIsOpen(false); setTimeout(() => setIsOpen(true), 50); }, icon: <Minimize2 style={{ width: 14, height: 14 }} />, title: 'Chat mới' },
-                { onClick: () => setIsOpen(false), icon: <X style={{ width: 14, height: 14 }} />, title: 'Đóng' },
+                { onClick: () => { setMessages([]); setIsOpen(false); setTimeout(() => setIsOpen(true), 50); }, icon: <Minimize2 style={{ width: 14, height: 14 }} />, title: t('chatWidget.newChat') },
+                { onClick: () => setIsOpen(false), icon: <X style={{ width: 14, height: 14 }} />, title: t('chatWidget.close') },
               ].map((btn, i) => (
                 <button key={i} onClick={btn.onClick} title={btn.title} style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', background: 'transparent', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.2)'; }}
@@ -259,7 +262,7 @@ export function ChatWidget() {
                   e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
                 }}
                 onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
-                placeholder="Nhập tin nhắn... (Enter để gửi)"
+                placeholder={t('chatWidget.inputPlaceholder')}
                 rows={1}
                 disabled={isLoading}
                 style={{ flex: 1, resize: 'none', fontSize: 13, padding: '10px 14px', borderRadius: 12, border: '1px solid #e2e8f0', outline: 'none', background: 'white', minHeight: 42, maxHeight: 80, lineHeight: 1.5, fontFamily: 'inherit', color: '#1e293b' }}
@@ -275,7 +278,7 @@ export function ChatWidget() {
                   opacity: !isLoading && !input.trim() ? 0.4 : 1,
                   boxShadow: isLoading ? 'none' : '0 2px 8px rgba(99,102,241,0.3)',
                 }}
-                title={isLoading ? 'Dừng' : 'Gửi'}
+                title={isLoading ? t('chatWidget.stop') : t('chatWidget.send')}
               >
                 {isLoading ? <X style={{ width: 16, height: 16 }} /> : <Send style={{ width: 16, height: 16 }} />}
               </button>

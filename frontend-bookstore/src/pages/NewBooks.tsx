@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShoppingCart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { SafeImage } from '../components/SafeImage';
+import { useTranslation } from 'react-i18next';
 
 interface Book {
     book_id: string;
@@ -16,6 +17,7 @@ export function NewBooks() {
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const { handleAddToCart } = useCart();
+    const { t, i18n } = useTranslation();
 
     useEffect(() => {
         const fetchNewBooks = async () => {
@@ -27,7 +29,7 @@ export function NewBooks() {
                     setBooks(json.data);
                 }
             } catch (err) {
-                console.error("Lỗi tải sách mới:", err);
+                console.error(t('newBooks.errorLoading'), err);
             } finally {
                 setLoading(false);
             }
@@ -37,15 +39,20 @@ export function NewBooks() {
     }, []);
 
     const formatPrice = (price: string | number) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
+        const numPrice = Number(price);
+        if (i18n.language === 'en') {
+            const usdPrice = numPrice / 25000;
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdPrice);
+        }
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
     };
 
     return (
         <div className="bg-slate-50 min-h-screen py-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-8 text-center">
-                    <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">Sách Mới Nhất</h1>
-                    <p className="text-slate-500 max-w-2xl mx-auto">Cập nhật những tựa sách vừa mới ra mắt được tuyển chọn kỹ lưỡng dành riêng cho bạn.</p>
+                    <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-4">{t('newBooks.title')}</h1>
+                    <p className="text-slate-500 max-w-2xl mx-auto">{t('newBooks.subtitle')}</p>
                 </div>
 
                 {loading ? (
@@ -79,7 +86,7 @@ export function NewBooks() {
                                     onClick={() => handleAddToCart(book.book_id)}
                                     className="w-full mt-3 bg-slate-900 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
                                 >
-                                    <ShoppingCart className="w-4 h-4" /> Thêm
+                                    <ShoppingCart className="w-4 h-4" /> {t('newBooks.add')}
                                 </button>
                             </div>
                         ))}

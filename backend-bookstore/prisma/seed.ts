@@ -1,10 +1,10 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
 import { createHash } from 'crypto';
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { createPgPool } from '../src/prisma/create-pg-pool';
 
 type SeedCategory = {
   name: string;
@@ -32,7 +32,7 @@ type SeedBook = {
   metadata?: Record<string, unknown> | null;
 };
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = createPgPool();
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -198,6 +198,8 @@ async function main() {
     const bookSlug = buildBookSlug(bookTitle, safeIsbn);
     const metadata = (item.metadata ?? {}) as Prisma.InputJsonValue;
     const bookLanguage = limitText(item.language ?? 'vi', LANGUAGE_MAX_LEN, 'vi');
+    const py = item.publish_year;
+    const safePublishYear = py != null && Number.isFinite(py) && py > 0 && py <= 32767 ? py : null;
 
     await prisma.book.upsert({
       where: { isbn: safeIsbn },
@@ -210,7 +212,7 @@ async function main() {
         sold_count: item.sold_count ?? 0,
         page_count: item.page_count ?? null,
         language: bookLanguage,
-        publish_year: item.publish_year ?? null,
+        publish_year: safePublishYear,
         cover_url: item.cover_url ?? null,
         metadata,
         publisher_id: publisher.publisher_id,
@@ -228,7 +230,7 @@ async function main() {
         sold_count: item.sold_count ?? 0,
         page_count: item.page_count ?? null,
         language: bookLanguage,
-        publish_year: item.publish_year ?? null,
+        publish_year: safePublishYear,
         cover_url: item.cover_url ?? null,
         metadata,
         publisher_id: publisher.publisher_id,

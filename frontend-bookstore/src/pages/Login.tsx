@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useTranslation } from 'react-i18next';
 
 export function Login() {
     const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export function Login() {
 
     const navigate = useNavigate();
     const { setToken, guestId } = useCart();
+    const { t } = useTranslation();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,10 +36,10 @@ export function Login() {
                 navigate('/');
             } else {
                 const errData = await res.json().catch(() => null);
-                setError(errData?.message || 'Sai email hoặc mật khẩu!');
+                setError(errData?.message || t('login.errorInvalid'));
             }
         } catch (err) {
-            setError('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+            setError(t('login.errorNetwork'));
         } finally {
             setIsLoading(false);
         }
@@ -47,7 +49,7 @@ export function Login() {
         <div className="bg-slate-50 min-h-[calc(100vh-80px)] flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 <h1 className="text-2xl md:text-3xl font-serif text-slate-800 mb-4 text-left">
-                    Đăng nhập tài khoản
+                    {t('login.title')}
                 </h1>
 
                 <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
@@ -60,7 +62,7 @@ export function Login() {
                         )}
 
                         <div className="space-y-1">
-                            <label className="block text-sm text-slate-700">Email</label>
+                            <label className="block text-sm text-slate-700">{t('login.emailLabel')}</label>
                             <input
                                 type="email"
                                 value={email}
@@ -72,7 +74,7 @@ export function Login() {
                         </div>
 
                         <div className="space-y-1">
-                            <label className="block text-sm text-slate-700">Mật khẩu</label>
+                            <label className="block text-sm text-slate-700">{t('login.passwordLabel')}</label>
                             <input
                                 type="password"
                                 value={password}
@@ -93,15 +95,15 @@ export function Login() {
                                 disabled={isLoading}
                             />
                             <label htmlFor="remember" className="text-sm text-slate-700 cursor-pointer select-none">
-                                Ghi nhớ đăng nhập
+                                {t('login.rememberMe')}
                             </label>
                         </div>
 
                         <div className="text-sm text-slate-500 leading-relaxed pt-2">
-                            Bằng việc đăng nhập, bạn đồng ý với Modern Book's{' '}
-                            <a href="#" className="text-indigo-600 hover:underline">Chính sách</a>
-                            {' '}và{' '}
-                            <a href="#" className="text-indigo-600 hover:underline">Điều khoản</a>.
+                            {t('login.termsPrefix')}
+                            <a href="#" className="text-indigo-600 hover:underline">{t('login.policyLink')}</a>
+                            {t('login.termsAnd')}
+                            <a href="#" className="text-indigo-600 hover:underline">{t('login.termsLink')}</a>.
                         </div>
 
                         <div className="pt-2">
@@ -111,16 +113,16 @@ export function Login() {
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-8 rounded-full transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center min-w-[140px]"
                             >
                                 {isLoading ? (
-                                    <span className="animate-pulse">ĐANG XỬ LÝ...</span>
+                                    <span className="animate-pulse">{t('login.processing')}</span>
                                 ) : (
-                                    "ĐĂNG NHẬP"
+                                    t('login.submitBtn')
                                 )}
                             </button>
                         </div>
 
                         {/* Đã cập nhật phần text dưới cùng theo yêu cầu */}
                         <div className="text-sm text-slate-600 text-center pt-2">
-                            hoặc <Link to="/register" className="text-indigo-600 font-medium hover:underline">Tạo một tài khoản mới</Link> | <a href="#" className="text-indigo-600 font-medium hover:underline">Quên mật khẩu?</a>
+                            {t('login.or')}<Link to="/register" className="text-indigo-600 font-medium hover:underline">{t('login.createAccount')}</Link>{t('login.separator')}<a href="#" className="text-indigo-600 font-medium hover:underline">{t('login.forgotPassword')}</a>
                         </div>
                     </form>
                 </div>

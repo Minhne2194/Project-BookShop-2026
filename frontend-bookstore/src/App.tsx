@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Home } from './pages/Home';
@@ -31,7 +32,7 @@ function ScrollToTop() {
 
 function StoreLayout() {
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-dark-bg text-gray-900 dark:text-dark-text transition-colors duration-300">
       <Header />
       <main className="grow">
         <Outlet />
@@ -44,30 +45,32 @@ function StoreLayout() {
 
 export default function App() {
   return (
-    <ToastProvider>
-    <AuthProvider>
-      <CartProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <Routes>
-            <Route element={<StoreLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/new-books" element={<NewBooks />} />
-              <Route path="/best-sellers" element={<BestSellers />} />
-              <Route path="/book/:bookId" element={<BookDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/payment/result" element={<PaymentResult />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/account" element={<Account />} />
-            </Route>
-            <Route path="/admin/*" element={<Admin />} />
-          </Routes>
-        </BrowserRouter>
-      </CartProvider>
-    </AuthProvider>
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+      <AuthProvider>
+        <CartProvider>
+          <BrowserRouter>
+            <ScrollToTop />
+            <Routes>
+              <Route element={<StoreLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/search" element={<Search />} />
+                <Route path="/new-books" element={<NewBooks />} />
+                <Route path="/best-sellers" element={<BestSellers />} />
+                <Route path="/book/:bookId" element={<BookDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/payment/result" element={<PaymentResult />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/account" element={<Account />} />
+              </Route>
+              <Route path="/admin/*" element={<Admin />} />
+            </Routes>
+          </BrowserRouter>
+        </CartProvider>
+      </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

@@ -4,6 +4,7 @@ import { User, ShoppingBag, MapPin, LogOut, CheckCircle2, AlertCircle, Plus, Hom
 import { useCart } from '../context/CartContext';
 import { useToast } from '../components/Toast';
 import { getOrderStatusMeta } from '../utils/orderStatus';
+import { useTranslation } from 'react-i18next';
 
 interface OrderItem {
   quantity: number;
@@ -70,6 +71,7 @@ export function Account() {
   const { token, setToken } = useCart();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
 
   const [activeTab, setActiveTab] = useState('profile');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -179,7 +181,7 @@ export function Account() {
           setOrders([]);
         }
       } catch (fetchError) {
-        console.error('Lỗi tải tài khoản:', fetchError);
+        console.error(t('account.errorLoadAccount'), fetchError);
       } finally {
         setLoading(false);
       }
@@ -206,7 +208,7 @@ export function Account() {
         setAddresses(data);
       }
     } catch (err) {
-      console.error('Lỗi tải địa chỉ:', err);
+      console.error(t('account.errorLoadAddress'), err);
     } finally {
       setAddressLoading(false);
     }
@@ -233,23 +235,23 @@ export function Account() {
       });
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: 'Có lỗi xảy ra khi cập nhật.' });
+        setMessage({ type: 'error', text: t('account.errorUpdateProfile') });
         return;
       }
 
       const updatedProfile: UserProfile = await res.json();
       setProfile(updatedProfile);
-      setMessage({ type: 'success', text: 'Cập nhật thông tin thành công.' });
+      setMessage({ type: 'success', text: t('account.updateProfileSuccess') });
     } catch (updateError) {
       console.error(updateError);
-      setMessage({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
+      setMessage({ type: 'error', text: t('account.networkError') });
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản này không? Hành động này không thể hoàn tác.')) {
+    if (!window.confirm(t('account.confirmDeleteAccount'))) {
       return;
     }
 
@@ -261,7 +263,7 @@ export function Account() {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
-        toast(`Lỗi: ${errorData?.message || 'Không thể xóa tài khoản.'}`, 'error');
+        toast(`${t('account.errorPrefix')}${errorData?.message || t('account.errorDeleteAccount')}`, 'error');
         return;
       }
 
@@ -270,7 +272,7 @@ export function Account() {
       navigate('/');
     } catch (deleteError) {
       console.error(deleteError);
-      toast('Có lỗi xảy ra khi xóa tài khoản.', 'error');
+      toast(t('account.errorDeleteAccountGeneral'), 'error');
     }
   };
 
@@ -344,22 +346,22 @@ export function Account() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => null);
-        setAddressMessage({ type: 'error', text: errData?.message || 'Có lỗi xảy ra.' });
+        setAddressMessage({ type: 'error', text: errData?.message || t('account.errorGeneral') });
         return;
       }
 
-      setAddressMessage({ type: 'success', text: editingAddressId ? 'Cập nhật địa chỉ thành công.' : 'Thêm địa chỉ mới thành công.' });
+      setAddressMessage({ type: 'success', text: editingAddressId ? t('account.updateAddressSuccess') : t('account.addAddressSuccess') });
       await fetchAddresses();
       closeAddressForm();
     } catch {
-      setAddressMessage({ type: 'error', text: 'Không thể kết nối đến máy chủ.' });
+      setAddressMessage({ type: 'error', text: t('account.networkError') });
     } finally {
       setIsSavingAddr(false);
     }
   };
 
   const handleDeleteAddress = async (addressId: string) => {
-    if (!window.confirm('Bạn có chắc chắn muốn xóa địa chỉ này?')) return;
+    if (!window.confirm(t('account.confirmDeleteAddress'))) return;
 
     try {
       const res = await fetch(`http://localhost:3000/users/addresses/${addressId}`, {
@@ -368,19 +370,25 @@ export function Account() {
       });
 
       if (!res.ok) {
-        toast('Không thể xóa địa chỉ.', 'error');
+        toast(t('account.errorDeleteAddress'), 'error');
         return;
       }
 
-      toast('Đã xóa địa chỉ.', 'success');
+      toast(t('account.deleteAddressSuccess'), 'success');
       await fetchAddresses();
     } catch {
-      toast('Có lỗi xảy ra khi xóa địa chỉ.', 'error');
+      toast(t('account.errorDeleteAddressGeneral'), 'error');
     }
   };
 
-  const formatPrice = (price: string | number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(price));
+  const formatPrice = (price: string | number) => {
+    const numPrice = Number(price);
+    if (i18n.language === 'en') {
+      const usdPrice = numPrice / 25000;
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdPrice);
+    }
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numPrice);
+  };
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('vi-VN', {
@@ -391,9 +399,13 @@ export function Account() {
 
   const renderStatusBadge = (status: string) => {
     const statusMeta = getOrderStatusMeta(status);
+    const translationKey = `orderStatus.${status?.toLowerCase()}`;
+    // Use translation if it exists, otherwise fallback to the meta label
+    const label = i18n.exists(translationKey) ? t(translationKey) : statusMeta.label;
+    
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-bold ${statusMeta.badgeClassName}`}>
-        {statusMeta.label}
+        {label}
       </span>
     );
   };
@@ -409,7 +421,7 @@ export function Account() {
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">Tài khoản của tôi</h1>
+        <h1 className="text-3xl font-serif font-bold text-slate-900 mb-8">{t('account.myAccount')}</h1>
 
         <div className="flex flex-col md:flex-row gap-8">
           <div className="w-full md:w-64 shrink-0">
@@ -419,7 +431,7 @@ export function Account() {
                   {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
                 </div>
                 <div className="overflow-hidden">
-                  <p className="font-bold text-slate-900 truncate">{profile?.full_name || 'Thành viên'}</p>
+                  <p className="font-bold text-slate-900 truncate">{profile?.full_name || t('account.member')}</p>
                   <p className="text-sm text-slate-500 truncate">{profile?.email}</p>
                 </div>
               </div>
@@ -434,7 +446,7 @@ export function Account() {
                     activeTab === 'profile' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <User size={20} /> Thông tin cá nhân
+                  <User size={20} /> {t('account.personalInfo')}
                 </button>
                 <button
                   onClick={() => setActiveTab('orders')}
@@ -442,7 +454,7 @@ export function Account() {
                     activeTab === 'orders' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <ShoppingBag size={20} /> Lịch sử đơn hàng
+                  <ShoppingBag size={20} /> {t('account.orderHistory')}
                 </button>
                 <button
                   onClick={() => setActiveTab('addresses')}
@@ -450,11 +462,11 @@ export function Account() {
                     activeTab === 'addresses' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <MapPin size={20} /> Sổ địa chỉ
+                  <MapPin size={20} /> {t('account.addressBook')}
                 </button>
                 <div className="h-px bg-slate-100 my-2 mx-4" />
                 <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-rose-600 hover:bg-rose-50">
-                  <LogOut size={20} /> Đăng xuất
+                  <LogOut size={20} /> {t('account.logout')}
                 </button>
               </nav>
             </div>
@@ -464,7 +476,7 @@ export function Account() {
             {/* --- Profile Tab --- */}
             {activeTab === 'profile' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
-                <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Thông tin cá nhân</h2>
+                <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">{t('account.personalInfo')}</h2>
 
                 {message.text && (
                   <div
@@ -481,7 +493,7 @@ export function Account() {
 
                 <form className="space-y-6 max-w-lg" onSubmit={handleUpdateProfile}>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Họ và tên</label>
+                    <label className="text-sm font-medium text-slate-700">{t('account.fullName')}</label>
                     <input
                       type="text"
                       value={editFullName}
@@ -492,7 +504,7 @@ export function Account() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Email</label>
+                    <label className="text-sm font-medium text-slate-700">{t('account.email')}</label>
                     <input
                       type="email"
                       disabled
@@ -502,32 +514,32 @@ export function Account() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Số điện thoại</label>
+                    <label className="text-sm font-medium text-slate-700">{t('account.phone')}</label>
                     <input
                       type="tel"
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Thêm SĐT..."
+                      placeholder={t('account.phonePlaceholder')}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Giới tính</label>
+                    <label className="text-sm font-medium text-slate-700">{t('account.gender')}</label>
                     <select
                       value={editGender}
                       onChange={(e) => setEditGender(e.target.value)}
                       className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
                     >
-                      <option value="">Chưa cập nhật</option>
-                      <option value="male">Nam</option>
-                      <option value="female">Nữ</option>
-                      <option value="other">Khác</option>
+                      <option value="">{t('account.notUpdated')}</option>
+                      <option value="male">{t('account.male')}</option>
+                      <option value="female">{t('account.female')}</option>
+                      <option value="other">{t('account.other')}</option>
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Ngày sinh</label>
+                    <label className="text-sm font-medium text-slate-700">{t('account.birthday')}</label>
                     <input
                       type="date"
                       value={editBirthday}
@@ -537,22 +549,22 @@ export function Account() {
                   </div>
 
                   <button type="submit" disabled={isSaving} className="px-6 py-2.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-70">
-                    {isSaving ? 'ĐANG LƯU...' : 'Lưu thay đổi'}
+                    {isSaving ? t('account.saving') : t('account.saveChanges')}
                   </button>
                 </form>
 
                 <div className="mt-12 pt-8 border-t border-rose-100">
                   <h3 className="text-lg font-bold text-rose-600 mb-2 flex items-center gap-2">
-                    <AlertCircle size={20} /> Xóa tài khoản
+                    <AlertCircle size={20} /> {t('account.deleteAccount')}
                   </h3>
                   <p className="text-sm text-slate-500 mb-5 leading-relaxed max-w-lg">
-                    Một khi bạn xóa tài khoản, mọi thông tin cá nhân của bạn sẽ bị xóa khỏi hệ thống. Hành động này không thể hoàn tác.
+                    {t('account.deleteAccountWarning')}
                   </p>
                   <button
                     onClick={handleDeleteAccount}
                     className="px-5 py-2.5 bg-white border-2 border-rose-600 text-rose-600 font-bold rounded-lg hover:bg-rose-50 hover:text-rose-700 transition-colors"
                   >
-                    Xóa tài khoản vĩnh viễn
+                    {t('account.deleteAccountConfirm')}
                   </button>
                 </div>
               </div>
@@ -561,12 +573,12 @@ export function Account() {
             {/* --- Orders Tab --- */}
             {activeTab === 'orders' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
-                <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">Lịch sử đơn hàng</h2>
+                <h2 className="text-xl font-bold text-slate-900 mb-6 pb-4 border-b border-slate-100">{t('account.orderHistory')}</h2>
 
                 {orders.length === 0 ? (
                   <div className="text-center py-12">
                     <ShoppingBag className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-500 font-medium">Bạn chưa có đơn hàng nào.</p>
+                    <p className="text-slate-500 font-medium">{t('account.noOrders')}</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -574,15 +586,15 @@ export function Account() {
                       <div key={order.order_code} className="border rounded-xl overflow-hidden">
                         <div className="bg-slate-50 px-6 py-4 flex flex-wrap gap-4 justify-between items-center border-b">
                           <div>
-                            <p className="text-sm text-slate-500">Mã đơn</p>
+                            <p className="text-sm text-slate-500">{t('account.orderCode')}</p>
                             <p className="font-bold">{order.order_code}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-slate-500">Ngày đặt</p>
+                            <p className="text-sm text-slate-500">{t('account.orderDate')}</p>
                             <p className="font-bold">{formatDate(order.created_at)}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-slate-500">Tổng tiền</p>
+                            <p className="text-sm text-slate-500">{t('account.totalAmount')}</p>
                             <p className="font-bold text-indigo-600">{formatPrice(order.total_amount)}</p>
                           </div>
                           <div>{renderStatusBadge(order.status)}</div>
@@ -598,7 +610,7 @@ export function Account() {
                             <div>
                               <p className="font-bold text-slate-900">{item.book.title}</p>
                               <p className="text-sm text-slate-500">
-                                Số lượng: {item.quantity} x {formatPrice(item.unit_price)}
+                                {t('account.quantity')}: {item.quantity} x {formatPrice(item.unit_price)}
                               </p>
                             </div>
                           </div>
@@ -614,13 +626,13 @@ export function Account() {
             {activeTab === 'addresses' && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 md:p-8">
                 <div className="flex justify-between items-center mb-6 pb-4 border-b">
-                  <h2 className="text-xl font-bold text-slate-900">Sổ địa chỉ</h2>
+                  <h2 className="text-xl font-bold text-slate-900">{t('account.addressBook')}</h2>
                   {!showAddressForm && (
                     <button
                       onClick={openAddForm}
                       className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
                     >
-                      <Plus size={18} /> Thêm địa chỉ mới
+                      <Plus size={18} /> {t('account.addNewAddress')}
                     </button>
                   )}
                 </div>
@@ -629,7 +641,7 @@ export function Account() {
                 {showAddressForm && (
                   <form onSubmit={handleSaveAddress} className="mb-8 p-6 border rounded-xl bg-slate-50">
                     <h3 className="font-bold text-slate-800 mb-4">
-                      {editingAddressId ? 'Sửa địa chỉ' : 'Thêm địa chỉ mới'}
+                      {editingAddressId ? t('account.editAddress') : t('account.addNewAddress')}
                     </h3>
 
                     {addressMessage.text && (
@@ -647,7 +659,7 @@ export function Account() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Tên người nhận *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.receiverName')}</label>
                         <input
                           type="text"
                           value={addressForm.receiver_name}
@@ -657,7 +669,7 @@ export function Account() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Số điện thoại *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.phoneNumber')}</label>
                         <input
                           type="tel"
                           value={addressForm.phone}
@@ -667,7 +679,7 @@ export function Account() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Tỉnh/Thành phố *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.province')}</label>
                         <select
                           value={addressForm.province}
                           onChange={(e) => {
@@ -678,14 +690,14 @@ export function Account() {
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
                           required
                         >
-                          <option value="">-- Chọn Tỉnh/Thành phố --</option>
+                          <option value="">{t('account.selectProvince')}</option>
                           {provinces.map((p) => (
                             <option key={p.code} value={p.name}>{p.name}</option>
                           ))}
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Quận/Huyện *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.district')}</label>
                         <select
                           value={addressForm.district}
                           onChange={(e) => {
@@ -697,14 +709,14 @@ export function Account() {
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100"
                           required
                         >
-                          <option value="">{loadingDistricts ? 'Đang tải...' : '-- Chọn Quận/Huyện --'}</option>
+                          <option value="">{loadingDistricts ? t('account.loading') : t('account.selectDistrict')}</option>
                           {districts.map((d) => (
                             <option key={d.code} value={d.name}>{d.name}</option>
                           ))}
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Phường/Xã *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.ward')}</label>
                         <select
                           value={addressForm.ward}
                           onChange={(e) => setAddressForm({ ...addressForm, ward: e.target.value })}
@@ -712,14 +724,14 @@ export function Account() {
                           className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100"
                           required
                         >
-                          <option value="">{loadingWards ? 'Đang tải...' : '-- Chọn Phường/Xã --'}</option>
+                          <option value="">{loadingWards ? t('account.loading') : t('account.selectWard')}</option>
                           {wards.map((w) => (
                             <option key={w.code} value={w.name}>{w.name}</option>
                           ))}
                         </select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-700">Tên đường/Số nhà *</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.streetAddress')}</label>
                         <input
                           type="text"
                           value={addressForm.street}
@@ -733,7 +745,7 @@ export function Account() {
                     <div className="mt-4 flex flex-wrap items-center gap-6">
                       {/* Address type */}
                       <div className="flex items-center gap-3">
-                        <label className="text-sm font-medium text-slate-700">Loại địa chỉ:</label>
+                        <label className="text-sm font-medium text-slate-700">{t('account.addressType')}</label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="radio"
@@ -744,7 +756,7 @@ export function Account() {
                             className="accent-indigo-600"
                           />
                           <Home size={16} className="text-slate-500" />
-                          <span className="text-sm text-slate-600">Nhà riêng</span>
+                          <span className="text-sm text-slate-600">{t('account.home')}</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -756,7 +768,7 @@ export function Account() {
                             className="accent-indigo-600"
                           />
                           <Building2 size={16} className="text-slate-500" />
-                          <span className="text-sm text-slate-600">Văn phòng</span>
+                          <span className="text-sm text-slate-600">{t('account.office')}</span>
                         </label>
                       </div>
 
@@ -768,7 +780,7 @@ export function Account() {
                           onChange={(e) => setAddressForm({ ...addressForm, is_default: e.target.checked })}
                           className="accent-indigo-600 w-4 h-4"
                         />
-                        <span className="text-sm text-slate-600">Đặt làm địa chỉ mặc định</span>
+                        <span className="text-sm text-slate-600">{t('account.setAsDefault')}</span>
                       </label>
                     </div>
 
@@ -778,14 +790,14 @@ export function Account() {
                         disabled={isSavingAddr}
                         className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-70"
                       >
-                        {isSavingAddr ? 'ĐANG LƯU...' : 'Lưu'}
+                        {isSavingAddr ? t('account.saving') : t('account.save')}
                       </button>
                       <button
                         type="button"
                         onClick={closeAddressForm}
                         className="px-5 py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50"
                       >
-                        Hủy
+                        {t('account.cancel')}
                       </button>
                       {editingAddressId && (
                         <button
@@ -798,7 +810,7 @@ export function Account() {
                           }}
                           className="px-5 py-2 ml-auto border border-rose-200 text-rose-600 rounded-lg text-sm font-medium hover:bg-rose-50"
                         >
-                          <Trash2 size={16} className="inline mr-1" /> Xóa
+                          <Trash2 size={16} className="inline mr-1" /> {t('account.delete')}
                         </button>
                       )}
                     </div>
@@ -813,7 +825,7 @@ export function Account() {
                 ) : addresses.length === 0 && !showAddressForm ? (
                   <div className="text-center py-12">
                     <MapPin className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <p className="text-slate-500 font-medium">Chưa có địa chỉ nào.</p>
+                    <p className="text-slate-500 font-medium">{t('account.noAddress')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -838,7 +850,7 @@ export function Account() {
                               <span className="text-slate-600 text-sm">{addr.phone}</span>
                               {addr.is_default && (
                                 <span className="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded">
-                                  Mặc định
+                                  {t('account.default')}
                                 </span>
                               )}
                             </div>
@@ -850,14 +862,14 @@ export function Account() {
                             <button
                               onClick={() => openEditForm(addr)}
                               className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-slate-50"
-                              title="Sửa"
+                              title={t('account.edit')}
                             >
                               <Pencil size={16} />
                             </button>
                             <button
                               onClick={() => handleDeleteAddress(addr.address_id)}
                               className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-slate-50"
-                              title="Xóa"
+                              title={t('account.delete')}
                             >
                               <Trash2 size={16} />
                             </button>
