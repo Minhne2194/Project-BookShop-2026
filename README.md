@@ -660,6 +660,47 @@ Yêu cầu: `DEEPSEEK_API_KEY` trong `.env`
 
 ---
 
+## 🧪 Kiểm Thử (Testing)
+
+Dự án được triển khai kiểm thử toàn diện ở 3 cấp độ:
+
+| Cấp Độ | Công Cụ | Phạm Vi |
+|---|---|---|
+| **Unit Test** | Jest | Kiểm tra từng logic hàm (CartService, ReviewsService, PaymentService...) |
+| **Integration Test** | Supertest + Jest | Kiểm tra các luồng API Endpoints (Books, Auth, Cart, Orders) |
+| **System Test** | Playwright | Mô phỏng người dùng thực tế (Tìm kiếm, Giỏ hàng, Checkout) trên trình duyệt |
+
+### Hướng Dẫn Chạy Test
+
+**1. Unit Test & Báo Cáo Coverage (Backend)**
+```bash
+cd backend-bookstore
+npm test
+
+# Chạy test và tạo báo cáo HTML (Coverage)
+npm run test:cov
+# Báo cáo được tạo tại: backend-bookstore/coverage/lcov-report/index.html
+```
+
+**2. Integration Test / API E2E (Backend)**
+```bash
+cd backend-bookstore
+npm run test:e2e
+```
+
+**3. System Test / E2E UI (Frontend)**
+*(Yêu cầu Backend và Frontend đang chạy)*
+```bash
+cd frontend-bookstore
+npx playwright install   # Chạy 1 lần duy nhất để tải trình duyệt
+npx playwright test
+
+# Hiển thị báo cáo HTML (với hình ảnh/video nếu có lỗi)
+npx playwright show-report
+```
+
+---
+
 ## 🙋 Tác Giả
 
 **Dương Công Minh** - 22010009
