@@ -184,6 +184,10 @@
     "sortPriceDesc": "Price: High to Low",
     "category": "Categories",
     "englishBooks": "English Books",
+    "comingSoon": "Coming Soon",
+    "englishComingSoonDesc": "Our English book collection is being built and will launch soon. Stay tuned!",
+    "collapseCategory": "Collapse category",
+    "expandCategory": "Expand category",
     "addToCart": "Add to cart"
   },
   "bookDetail": {

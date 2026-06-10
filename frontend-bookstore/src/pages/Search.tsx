@@ -553,7 +553,6 @@ export function Search() {
                                         {[
                                             { label: t('search.filterAll'), value: '' },
                                             { label: t('search.vietnamese'), value: 'vi' },
-                                            { label: t('search.english'), value: 'en' },
                                         ].map((item) => (
                                             <button
                                                 key={item.value}
@@ -568,6 +567,9 @@ export function Search() {
                                                 {item.label}
                                             </button>
                                         ))}
+                                        <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-50 text-amber-600 border border-amber-200 cursor-not-allowed flex items-center gap-1">
+                                            🇬🇧 EN <span className="text-[10px] bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded-full font-bold">Soon</span>
+                                        </span>
                                     </div>
 
                                     <div className="flex gap-2">
@@ -626,39 +628,26 @@ export function Search() {
                         </div>
 
                         <div className="mt-6 pt-4 border-t border-slate-300">
-                            <h3 className="font-bold text-slate-900 mb-3 uppercase tracking-wider text-sm flex items-center gap-2">
-                                <span className="text-lg">🇬🇧</span> {t('search.englishBooks')}
-                            </h3>
-                            <div className="space-y-1">
-                                {[
-                                    { name: 'Fiction', slug: 'fiction' },
-                                    { name: 'Business & Management', slug: 'business-management' },
-                                    { name: "Children's Books", slug: 'children-s-books' },
-                                    { name: 'Science & Technology', slug: 'science-technology' },
-                                    { name: 'Self-Help', slug: 'self-help' },
-                                    { name: 'Biographies & Memoirs', slug: 'biographies-memoirs' },
-                                    { name: 'Teen & Young Adult', slug: 'teen-young-adult' },
-                                ].map((cat) => (
-                                    <button
-                                        key={cat.slug}
-                                        type="button"
-                                        onClick={() => {
-                                            setLang('en');
-                                            setSelectedCategory(cat.slug);
-                                            const nextParams = new URLSearchParams(searchParams);
-                                            nextParams.set('category', cat.slug);
-                                            nextParams.set('lang', 'en');
-                                            setSearchParams(nextParams);
-                                        }}
-                                        className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors ${
-                                            selectedCategory === cat.slug && lang === 'en'
-                                                ? 'bg-indigo-50 text-indigo-700 font-semibold'
-                                                : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        <span className="block truncate">{cat.name}</span>
-                                    </button>
-                                ))}
+                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-900 p-4 text-white">
+                                {/* Decorative dots */}
+                                <div className="absolute top-0 right-0 w-24 h-24 opacity-10">
+                                    <svg viewBox="0 0 100 100" className="w-full h-full">
+                                        <circle cx="80" cy="20" r="40" fill="white" />
+                                    </svg>
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-xl">🇬🇧</span>
+                                        <span className="font-bold text-sm tracking-wide">{t('search.englishBooks')}</span>
+                                    </div>
+                                    <div className="inline-flex items-center gap-1.5 bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-semibold px-2.5 py-1 rounded-full mb-3">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                                        {t('search.comingSoon') || 'Đang phát triển'}
+                                    </div>
+                                    <p className="text-indigo-200 text-xs leading-relaxed">
+                                        {t('search.englishComingSoonDesc') || 'Kho sách tiếng Anh đang được xây dựng. Sắp ra mắt!'}
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>

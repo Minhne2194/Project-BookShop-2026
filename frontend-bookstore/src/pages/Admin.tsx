@@ -4,6 +4,8 @@ import {
     BookOpen,
     Building2,
     CheckCircle,
+    ChevronsLeft,
+    ChevronsRight,
     DollarSign,
     Edit,
     Globe,
@@ -169,6 +171,7 @@ export function Admin() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -186,6 +189,7 @@ export function Admin() {
     const [publishers, setPublishers] = useState<Publisher[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [revenueData, setRevenueData] = useState<{ month: string; revenue: number; orders: number }[]>([]);
+    const [hoveredBar, setHoveredBar] = useState<number | null>(null);
 
     const [reviewsLoading, setReviewsLoading] = useState(false);
     const [authorsLoading, setAuthorsLoading] = useState(false);
@@ -835,7 +839,7 @@ export function Admin() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row">
+        <div className="min-h-screen bg-slate-100 flex flex-col md:flex-row" style={{ '--sidebar-w': isSidebarCollapsed ? '0px' : '256px' } as React.CSSProperties}>
             {/* Mobile Header */}
             <div className="md:hidden bg-white p-4 flex items-center justify-between border-b shadow-sm shrink-0">
                 <span className="font-bold text-xl text-slate-800">Admin Panel</span>
@@ -846,7 +850,7 @@ export function Admin() {
 
             {/* Sidebar Overlay */}
             {isSidebarOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-slate-900/50 z-40 md:hidden backdrop-blur-sm"
                     onClick={() => setIsSidebarOpen(false)}
                 />
@@ -855,47 +859,106 @@ export function Admin() {
             {/* Sidebar */}
             <div className={`
                 fixed md:static inset-y-0 left-0 z-50
-                w-64 bg-white shadow-xl md:shadow-lg flex flex-col shrink-0
-                transition-transform duration-300 ease-in-out
+                bg-white border-r border-slate-100 shadow-xl md:shadow-sm flex flex-col shrink-0
+                transition-all duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+                ${isSidebarCollapsed ? 'md:w-16' : 'w-64'}
             `}>
-                <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-                    <span className="font-bold text-xl text-slate-800">Admin Panel</span>
-                    <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-500 hover:bg-slate-50 rounded-lg">
-                        <X size={20} />
-                    </button>
-                </div>
-                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                    {[
-                        ['dashboard', <TrendingUp size={18} />, 'Tổng quan'],
-                        ['books', <BookOpen size={18} />, 'Sản phẩm'],
-                        ['categories', <Layers size={18} />, 'Danh mục'],
-                        ['orders', <ShoppingBag size={18} />, 'Đơn hàng'],
-                        ['users', <Users size={18} />, 'Khách hàng'],
-                        ['reviews', <Star size={18} />, 'Reviews'],
-                        ['authors', <UserSquare2 size={18} />, 'Authors'],
-                        ['publishers', <Building2 size={18} />, 'Publishers'],
-                    ].map(([key, icon, label]) => (
+                {/* Header */}
+                <div className={`border-b border-slate-100 flex items-center shrink-0 overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'md:justify-center md:px-0 md:py-5 p-6 justify-between' : 'p-5 justify-between'
+                    }`}>
+                    {/* Logo / Title */}
+                    <div className={`flex items-center gap-2 transition-all duration-300 ${isSidebarCollapsed ? 'md:hidden' : ''
+                        }`}>
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+                            <span className="text-white font-bold text-sm leading-none">A</span>
+                        </div>
+                        <span className="font-bold text-lg text-slate-800 whitespace-nowrap">Admin Panel</span>
+                    </div>
+                    {/* Collapsed logo */}
+                    {isSidebarCollapsed && (
+                        <div className="hidden md:flex w-8 h-8 bg-indigo-600 rounded-lg items-center justify-center shrink-0 ml-4">
+                            <span className="text-white font-bold text-sm leading-none">A</span>
+                        </div>
+                    )}
+                    {/* Right side buttons */}
+                    <div className="flex items-center gap-1">
+                        {/* Desktop toggle button */}
                         <button
-                            key={key as string}
-                            onClick={() => {
-                                setActiveTab(String(key));
-                                setIsSidebarOpen(false);
-                            }}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors ${
-                                activeTab === key ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'
-                            }`}
+                            onClick={() => setIsSidebarCollapsed(c => !c)}
+                            title={isSidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+                            className="hidden md:flex p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                         >
-                            {icon} {label}
-                            {key === 'reviews' && stats?.pendingReviews ? (
-                                <span className="ml-auto bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full">{stats.pendingReviews}</span>
-                            ) : null}
+                            {isSidebarCollapsed
+                                ? <ChevronsRight size={18} />
+                                : <ChevronsLeft size={18} />
+                            }
                         </button>
-                    ))}
+                        {/* Mobile close */}
+                        <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-slate-400 hover:bg-slate-100 rounded-lg">
+                            <X size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Nav */}
+                <nav className="flex-1 py-4 overflow-y-auto">
+                    <div className={`space-y-1 transition-all duration-300 ${isSidebarCollapsed ? 'md:px-2 px-3' : 'px-3'
+                        }`}>
+                        {([
+                            ['dashboard', <TrendingUp size={18} />, 'Tổng quan'],
+                            ['books', <BookOpen size={18} />, 'Sản phẩm'],
+                            ['categories', <Layers size={18} />, 'Danh mục'],
+                            ['orders', <ShoppingBag size={18} />, 'Đơn hàng'],
+                            ['users', <Users size={18} />, 'Khách hàng'],
+                            ['reviews', <Star size={18} />, 'Reviews'],
+                            ['authors', <UserSquare2 size={18} />, 'Authors'],
+                            ['publishers', <Building2 size={18} />, 'Publishers'],
+                        ] as [string, React.ReactNode, string][]).map(([key, icon, label]) => (
+                            <button
+                                key={key}
+                                title={isSidebarCollapsed ? label : undefined}
+                                onClick={() => {
+                                    setActiveTab(key);
+                                    setIsSidebarOpen(false);
+                                }}
+                                className={`
+                                    w-full flex items-center rounded-xl font-medium transition-all duration-200
+                                    ${isSidebarCollapsed ? 'md:justify-center md:px-0 md:py-3 px-3 py-3 gap-3' : 'gap-3 px-3 py-3'}
+                                    ${activeTab === key
+                                        ? 'bg-indigo-50 text-indigo-600'
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                                    }
+                                `}
+                            >
+                                <span className="shrink-0">{icon}</span>
+                                <span className={`text-sm whitespace-nowrap transition-all duration-300 ${isSidebarCollapsed ? 'md:hidden' : ''
+                                    }`}>{label}</span>
+                                {key === 'reviews' && stats?.pendingReviews ? (
+                                    <span className={`ml-auto bg-rose-500 text-white text-xs px-1.5 py-0.5 rounded-full leading-none ${isSidebarCollapsed ? 'md:hidden' : ''
+                                        }`}>
+                                        {stats.pendingReviews}
+                                    </span>
+                                ) : null}
+                            </button>
+                        ))}
+                    </div>
                 </nav>
-                <div className="p-4 border-t border-slate-100">
-                    <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium text-rose-600 hover:bg-rose-50 transition-colors">
-                        <LogOut size={18} /> Đăng xuất
+
+                {/* Footer */}
+                <div className={`border-t border-slate-100 py-3 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'md:px-2 px-3' : 'px-3'
+                    }`}>
+                    <button
+                        onClick={handleLogout}
+                        title={isSidebarCollapsed ? 'Đăng xuất' : undefined}
+                        className={`
+                            w-full flex items-center rounded-xl font-medium text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-all duration-200 py-3
+                            ${isSidebarCollapsed ? 'md:justify-center md:px-0 px-3 gap-3' : 'gap-3 px-3'}
+                        `}
+                    >
+                        <LogOut size={18} className="shrink-0" />
+                        <span className={`text-sm whitespace-nowrap ${isSidebarCollapsed ? 'md:hidden' : ''
+                            }`}>Đăng xuất</span>
                     </button>
                 </div>
             </div>
@@ -959,26 +1022,155 @@ export function Admin() {
                         {/* Revenue Chart */}
                         {revenueData.length > 0 && (() => {
                             const maxRev = Math.max(...revenueData.map(d => d.revenue), 1);
+                            const svgWidth = 800;
+                            const svgHeight = 280;
+                            const paddingLeft = 80;
+                            const paddingRight = 16;
+                            const paddingTop = 70;
+                            const paddingBottom = 48;
+                            const chartWidth = svgWidth - paddingLeft - paddingRight;
+                            const chartHeight = svgHeight - paddingTop - paddingBottom;
+                            const barCount = revenueData.length;
+                            const barGap = 50;
+                            const barWidth = Math.min(
+                                Math.max((chartWidth - barGap * (barCount - 1)) / barCount, 8),
+                                32
+                            );
+                            const totalBarsWidth = barCount * barWidth + (barCount - 1) * barGap;
+                            const barsStartX = paddingLeft + (chartWidth - totalBarsWidth) / 2;
+                            const yGridLines = [0, 0.25, 0.5, 0.75, 1];
+                            const tooltipW = 140;
+                            const tooltipH = 48;
                             return (
                                 <div className="bg-white rounded-2xl border p-6">
                                     <h2 className="text-lg font-bold text-slate-800 mb-1">Doanh thu theo tháng</h2>
                                     <p className="text-sm text-slate-500 mb-4">12 tháng gần nhất (đơn đã thanh toán)</p>
-                                    <div className="flex items-end gap-2 h-40">
-                                        {revenueData.map((d) => {
-                                            const heightPct = Math.round((d.revenue / maxRev) * 100);
-                                            return (
-                                                <div key={d.month} className="flex-1 flex flex-col items-center gap-1 group relative">
-                                                    <div className="absolute bottom-10 hidden group-hover:block bg-slate-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap z-10">
-                                                        {formatPrice(d.revenue)}<br />{d.orders} đơn
-                                                    </div>
-                                                    <div
-                                                        className="w-full rounded-t-md bg-indigo-500 hover:bg-indigo-600 transition-all cursor-default"
-                                                        style={{ height: `${Math.max(heightPct, 2)}%` }}
-                                                    />
-                                                    <span className="text-[10px] text-slate-400 truncate w-full text-center">{d.month.slice(5)}/{d.month.slice(0,4).slice(2)}</span>
-                                                </div>
-                                            );
-                                        })}
+                                    <div className="w-full overflow-x-auto">
+                                        <svg
+                                            viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                                            style={{ width: '100%', height: 'auto', minWidth: '320px' }}
+                                            overflow="visible"
+                                        >
+                                            {/* Y-axis grid lines */}
+                                            {yGridLines.map((ratio) => {
+                                                const y = paddingTop + chartHeight * (1 - ratio);
+                                                const label = ratio === 0 ? '0' :
+                                                    maxRev * ratio >= 1_000_000
+                                                        ? `${Math.round(maxRev * ratio / 1_000_000)}M`
+                                                        : `${Math.round(maxRev * ratio / 1_000)}K`;
+                                                return (
+                                                    <g key={ratio}>
+                                                        <line
+                                                            x1={paddingLeft} y1={y}
+                                                            x2={svgWidth - paddingRight} y2={y}
+                                                            stroke={ratio === 0 ? '#cbd5e1' : '#f1f5f9'}
+                                                            strokeWidth={ratio === 0 ? 1.5 : 1}
+                                                        />
+                                                        <text
+                                                            x={paddingLeft - 8} y={y + 4}
+                                                            textAnchor="end"
+                                                            fill="#94a3b8"
+                                                            fontSize={10}
+                                                        >
+                                                            {label}
+                                                        </text>
+                                                    </g>
+                                                );
+                                            })}
+
+                                            {/* Bars */}
+                                            {revenueData.map((d, i) => {
+                                                const barH = Math.max((d.revenue / maxRev) * chartHeight, 2);
+                                                const x = barsStartX + i * (barWidth + barGap);
+                                                const y = paddingTop + chartHeight - barH;
+                                                const isHovered = hoveredBar === i;
+                                                const labelMonth = d.month.slice(5) + '/' + d.month.slice(2, 4);
+                                                const barCenterX = x + barWidth / 2;
+                                                const tipX = Math.max(
+                                                    paddingLeft,
+                                                    Math.min(barCenterX - tooltipW / 2, svgWidth - paddingRight - tooltipW)
+                                                );
+                                                const tipY = paddingTop - tooltipH - 10;
+                                                return (
+                                                    <g key={d.month}
+                                                        onMouseEnter={() => setHoveredBar(i)}
+                                                        onMouseLeave={() => setHoveredBar(null)}
+                                                        style={{ cursor: 'default' }}
+                                                    >
+                                                        {/* Hover column highlight */}
+                                                        {isHovered && (
+                                                            <rect
+                                                                x={x - 4} y={paddingTop}
+                                                                width={barWidth + 8} height={chartHeight}
+                                                                rx={4} ry={4}
+                                                                fill="#eef2ff"
+                                                            />
+                                                        )}
+                                                        {/* Bar */}
+                                                        <rect
+                                                            x={x} y={y}
+                                                            width={barWidth} height={barH}
+                                                            rx={4} ry={4}
+                                                            fill={isHovered ? '#4338ca' : '#6366f1'}
+                                                            style={{ transition: 'fill 0.15s' }}
+                                                        />
+                                                        {/* X label */}
+                                                        <text
+                                                            x={barCenterX}
+                                                            y={paddingTop + chartHeight + 18}
+                                                            textAnchor="middle"
+                                                            fill={isHovered ? '#6366f1' : '#94a3b8'}
+                                                            fontSize={10}
+                                                            fontWeight={isHovered ? '600' : '400'}
+                                                        >
+                                                            {labelMonth}
+                                                        </text>
+                                                        {/* Connector line from bar top to tooltip */}
+                                                        {isHovered && (
+                                                            <line
+                                                                x1={barCenterX} y1={y}
+                                                                x2={barCenterX} y2={tipY + tooltipH}
+                                                                stroke="#6366f1"
+                                                                strokeWidth={1}
+                                                                strokeDasharray="3 2"
+                                                                opacity={0.5}
+                                                            />
+                                                        )}
+                                                        {/* Tooltip — always rendered at fixed top area */}
+                                                        {isHovered && (
+                                                            <g>
+                                                                <rect
+                                                                    x={tipX}
+                                                                    y={tipY}
+                                                                    width={tooltipW} height={tooltipH}
+                                                                    rx={8} ry={8}
+                                                                    fill="#1e293b"
+                                                                />
+                                                                <text
+                                                                    x={tipX + tooltipW / 2}
+                                                                    y={tipY + 18}
+                                                                    textAnchor="middle"
+                                                                    fill="white"
+                                                                    fontSize={11}
+                                                                    fontWeight="600"
+                                                                >
+                                                                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(d.revenue)}
+                                                                </text>
+                                                                <text
+                                                                    x={tipX + tooltipW / 2}
+                                                                    y={tipY + 34}
+                                                                    textAnchor="middle"
+                                                                    fill="#94a3b8"
+                                                                    fontSize={10}
+                                                                >
+                                                                    {d.orders} đơn hàng
+                                                                </text>
+                                                            </g>
+                                                        )}
+                                                    </g>
+                                                );
+                                            })}
+                                        </svg>
                                     </div>
                                 </div>
                             );
@@ -1147,11 +1339,10 @@ export function Admin() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-6">
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                                                     user.status === 'banned' ? 'bg-rose-100 text-rose-700' :
-                                                    'bg-amber-100 text-amber-700'
-                                                }`}>{user.status}</span>
+                                                        'bg-amber-100 text-amber-700'
+                                                    }`}>{user.status}</span>
                                             </td>
                                             <td className="py-3 px-6">
                                                 <button
@@ -1167,11 +1358,10 @@ export function Admin() {
                                                     <button
                                                         onClick={() => handleToggleUserStatus(user.user_id, user.status)}
                                                         disabled={updatingUserId === user.user_id}
-                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                                                            user.status === 'banned'
-                                                                ? 'bg-emerald-50 text-emerald-700'
-                                                                : 'bg-rose-50 text-rose-700'
-                                                        }`}
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${user.status === 'banned'
+                                                            ? 'bg-emerald-50 text-emerald-700'
+                                                            : 'bg-rose-50 text-rose-700'
+                                                            }`}
                                                     >
                                                         {user.status === 'banned' ? (
                                                             <><UserCheck size={14} /> Unban</>

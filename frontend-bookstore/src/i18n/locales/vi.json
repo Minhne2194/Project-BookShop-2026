@@ -184,6 +184,10 @@
     "sortPriceDesc": "Giá: Cao đến Thấp",
     "category": "Danh mục",
     "englishBooks": "Sách tiếng Anh",
+    "comingSoon": "Đang phát triển",
+    "englishComingSoonDesc": "Kho sách tiếng Anh đang được xây dựng và sẽ sớm ra mắt. Hãy đón chờ nhé!",
+    "collapseCategory": "Thu gọn danh mục",
+    "expandCategory": "Mở rộng danh mục",
     "addToCart": "Thêm vào giỏ"
   },
   "bookDetail": {
