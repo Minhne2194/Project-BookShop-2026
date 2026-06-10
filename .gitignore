@@ -8,7 +8,7 @@
 # -----------------------------------------------------------------------------
 node_modules/
 **/node_modules/
-
+presentation/
 # Prisma generated client (auto-generated from schema, rebuild on install)
 generated/prisma/
 .prisma/
@@ -191,3 +191,6 @@ playwright.config.ts
 *.txt
 *.html
 *.png
+*.js
+*.docx
+*.py
